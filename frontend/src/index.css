@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+.react-calendar {
+    width: 100% !important;
+}
+
+.react-calendar__navigation__label,
+.react-calendar__navigation__arrow {
+    font-weight: 600;
+}
