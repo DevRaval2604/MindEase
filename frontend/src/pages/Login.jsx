@@ -20,6 +20,7 @@ function Login() {
     return nextErrors;
   };
 
+
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = e => {
@@ -28,6 +29,7 @@ function Login() {
     setErrors(nextErrors);
     setTouched({ email: true, password: true });
     if (Object.keys(nextErrors).length > 0) return;
+
     const users = JSON.parse(localStorage.getItem('auth:users') || '{}');
     const role = users[form.email] || 'client';
     console.log('Login attempt:', { email: form.email, role, users }); // Debug log
@@ -94,6 +96,11 @@ function Login() {
               {touched.password && errors.password && (
                 <p id="login-password-error" className="mt-1 text-xs text-red-600">{errors.password}</p>
               )}
+              <input className="w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" name="email" placeholder="you@example.com" value={form.email} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Password</label>
+              <input className="w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" type="password" name="password" placeholder="••••••••" value={form.password} onChange={handleChange} required />
             </div>
             <button className="w-full bg-blue-600 text-white py-2.5 rounded-md hover:bg-blue-700" type="submit">Login</button>
           </div>

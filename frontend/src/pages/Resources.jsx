@@ -1,60 +1,64 @@
+import React from 'react';
+
+// Data for the resource cards
 const items = [
-  { 
-    title: 'Mastering Mindfulness', 
+  {
+    title: 'Mastering Mindfulness',
     type: 'Article',
     image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=400&h=200&q=80',
     description: 'Learn practical mindfulness techniques for daily life'
   },
-  { 
-    title: 'Effective Time Management', 
+  {
+    title: 'Effective Time Management',
     type: 'Video',
     image: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=400&h=200&fit=crop&crop=center',
     description: 'Strategies to maximize productivity and reduce stress'
   },
-  { 
-    title: 'Building Resilience', 
+  {
+    title: 'Building Resilience',
     type: 'PDF',
     image: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=200&fit=crop&crop=center',
     description: 'Develop mental strength and bounce back from challenges'
   },
-  { 
-    title: 'Healthy Eating Habits', 
+  {
+    title: 'Healthy Eating Habits',
     type: 'Article',
     image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=200&fit=crop&crop=center',
     description: 'Nutrition tips for better mental and physical health'
   },
-  { 
-    title: 'Financial Planning Basics', 
+  {
+    title: 'Financial Planning Basics',
     type: 'Video',
     image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=200&fit=crop&crop=center',
     description: 'Take control of your finances and reduce money stress'
   },
-  { 
-    title: 'Positive Psychology', 
+  {
+    title: 'Positive Psychology',
     type: 'PDF',
     image: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&h=200&fit=crop&crop=center',
     description: 'Science-based approaches to happiness and well-being'
   },
-  { 
-    title: 'Effective Communication', 
+  {
+    title: 'Effective Communication',
     type: 'Article',
     image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=200&fit=crop&crop=center',
     description: 'Improve relationships through better communication'
   },
-  { 
-    title: 'Goal Setting Workshop', 
+  {
+    title: 'Goal Setting Workshop',
     type: 'Video',
     image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=200&fit=crop&crop=center',
     description: 'Set and achieve meaningful personal and professional goals'
   },
-  { 
-    title: 'Stress Reduction Techniques', 
+  {
+    title: 'Stress Reduction Techniques',
     type: 'PDF',
     image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=200&fit=crop&crop=center',
     description: 'Proven methods to manage and reduce daily stress'
   }
 ];
 
+// Reusable Card component with detailed styling
 function Card({ item }) {
   const getTypeIcon = (type) => {
     switch (type) {
@@ -90,8 +94,8 @@ function Card({ item }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-shadow duration-200 overflow-hidden flex flex-col group">
       <div className="relative h-48 overflow-hidden">
-        <img 
-          src={item.image} 
+        <img
+          src={item.image}
           alt={item.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
           onError={(e) => {
@@ -118,6 +122,7 @@ function Card({ item }) {
   );
 }
 
+// Main Resources page component
 function Resources() {
   return (
     <div className="container-responsive py-8">
@@ -153,8 +158,8 @@ function Resources() {
           <p className="text-gray-600 mb-4">
             Our professional therapists are here to provide personalized guidance and support.
           </p>
-          <a 
-            href="/therapists" 
+          <a
+            href="/therapists"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors duration-200 font-medium"
           >
             Find a Therapist
@@ -169,5 +174,3 @@ function Resources() {
 }
 
 export default Resources;
-
-

@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 /* App-wide layout defaults */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -19,14 +21,14 @@ body {
 /* Calendar component tweaks */
 .react-calendar {
   width: 100% !important;
-}
 
-.react-calendar__navigation__label,
-.react-calendar__navigation__arrow {
-  font-weight: 600;
-}
+  .react-calendar__navigation__arrow {
+    font-weight: 600;
+  }
 
-/* Responsive containers */
-.container-responsive {
-  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  /* Responsive containers */
+  .container-responsive {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    font-weight: 600;
+  }
 }

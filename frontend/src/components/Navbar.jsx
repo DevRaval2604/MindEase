@@ -7,14 +7,23 @@ function Navbar() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Close mobile menu on route change
+  // This effect will close the mobile menu when the route changes.
   useEffect(() => {
-    return navigate.listen?.(() => setMobileOpen(false));
+    // A simple way to handle this without a specific `listen` method
+    // is to just close it. A more robust solution might be needed
+    // if `Maps` doesn't trigger re-renders as expected, but this is a good start.
+    setMobileOpen(false);
   }, [navigate]);
+
   const handleLogout = () => {
     logout();
+    setMobileOpen(false); // Close menu on logout
     navigate('/');
   };
+
+  const navLinkClass = ({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700';
+  const mobileNavLinkClass = ({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`;
+
   return (
     <nav className="sticky top-0 z-40 bg-white/70 backdrop-blur border-b border-gray-200 text-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -23,7 +32,8 @@ function Navbar() {
         </div>
         <button
           aria-label="Toggle menu"
-          className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 lg:hidden"
+          className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-600 lg:hidden"
+
           onClick={() => setMobileOpen((v) => !v)}
         >
           <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -41,18 +51,18 @@ function Navbar() {
         <div className="hidden lg:flex items-center gap-6 text-sm">
           {(!isAuthenticated || userType === 'client') && (
             <>
-              <NavLink to="/" className={({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700'}>Home</NavLink>
-              <NavLink to="/resources" className={({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700'}>Resources</NavLink>
-              <NavLink to="/therapists" className={({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700'}>Therapists</NavLink>
-              {isAuthenticated && <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700'}>Dashboard</NavLink>}
+              <NavLink to="/" className={navLinkClass}>Home</NavLink>
+              <NavLink to="/resources" className={navLinkClass}>Resources</NavLink>
+              <NavLink to="/therapists" className={navLinkClass}>Therapists</NavLink>
+              {isAuthenticated && <NavLink to="/dashboard" className={navLinkClass}>Dashboard</NavLink>}
             </>
           )}
           {isAuthenticated && userType === 'counsellor' && (
-            <NavLink to="/counsellor/dashboard" className={({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700'}>Dashboard</NavLink>
+            <NavLink to="/counsellor/dashboard" className={navLinkClass}>Dashboard</NavLink>
           )}
           {!isAuthenticated ? (
             <>
-              <NavLink to="/login" className={({ isActive }) => isActive ? 'text-blue-700' : 'hover:text-blue-700'}>Sign In</NavLink>
+              <NavLink to="/login" className={navLinkClass}>Sign In</NavLink>
               <Link to="/register" className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700">Sign Up</Link>
             </>
           ) : (
@@ -66,20 +76,20 @@ function Navbar() {
           <div className="px-4 py-4 space-y-3 text-sm">
             {(!isAuthenticated || userType === 'client') && (
               <>
-                <NavLink to="/" onClick={() => setMobileOpen(false)} className={({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`}>Home</NavLink>
-                <NavLink to="/resources" onClick={() => setMobileOpen(false)} className={({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`}>Resources</NavLink>
-                <NavLink to="/therapists" onClick={() => setMobileOpen(false)} className={({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`}>Therapists</NavLink>
+                <NavLink to="/" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Home</NavLink>
+                <NavLink to="/resources" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Resources</NavLink>
+                <NavLink to="/therapists" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Therapists</NavLink>
                 {isAuthenticated && (
-                  <NavLink to="/dashboard" onClick={() => setMobileOpen(false)} className={({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`}>Dashboard</NavLink>
+                  <NavLink to="/dashboard" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Dashboard</NavLink>
                 )}
               </>
             )}
             {isAuthenticated && userType === 'counsellor' && (
-              <NavLink to="/counsellor/dashboard" onClick={() => setMobileOpen(false)} className={({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`}>Dashboard</NavLink>
+              <NavLink to="/counsellor/dashboard" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Dashboard</NavLink>
             )}
             {!isAuthenticated ? (
               <>
-                <NavLink to="/login" onClick={() => setMobileOpen(false)} className={({ isActive }) => `block ${isActive ? 'text-blue-700' : 'hover:text-blue-700'}`}>Sign In</NavLink>
+                <NavLink to="/login" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Sign In</NavLink>
                 <Link to="/register" onClick={() => setMobileOpen(false)} className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700">Sign Up</Link>
               </>
             ) : (

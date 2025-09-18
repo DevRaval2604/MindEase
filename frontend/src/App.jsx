@@ -58,6 +58,15 @@ const App = () => {
             <Route path="/resources" element={<Resources />} />
             <Route path="/profile" element={<ClientProfile />} />
             <Route path="*" element={<NotFound />} />
+            <Route path="/dashboard" element={<ClientDashboard />} />
+            <Route path="/appointments/book" element={<BookAppointment />} />
+            <Route path="/counsellor/dashboard" element={<CounsellorDashboard />} />
+            <Route path="/counsellor/profile" element={<CounsellorProfile />} />
+            <Route path="/counsellor/manage-slots" element={<ManageSlots />} />
+            <Route path="/counsellor/appointments" element={<MyAppointments />} />
+            <Route path="/counsellor/earnings" element={<EarningsSummary />} />
+            <Route path="/resources" element={<Resources />} />
+            <Route path="/profile" element={<ClientProfile />} />
           </Routes>
         </main>
         <Footer />

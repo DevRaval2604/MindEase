@@ -81,6 +81,12 @@ function Register() {
       agree: true,
     });
     if (Object.keys(nextErrors).length > 0) return;
+
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    if (!agree) return;
     if (form.accountType === 'Client') {
       try {
         const initialProfile = {
@@ -164,6 +170,7 @@ function Register() {
             {touched.phone && errors.phone && (
               <p id="reg-phone-error" className="mt-1 text-xs text-red-600">{errors.phone}</p>
             )}
+            <input className="w-full p-2.5 border rounded-md" type="tel" name="phone" placeholder="+91 98765 43210" value={form.phone} onChange={handleChange} required />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -217,6 +224,11 @@ function Register() {
               {touched.confirm && errors.confirm && (
                 <p id="reg-confirm-error" className="mt-1 text-xs text-red-600">{errors.confirm}</p>
               )}
+              <input className="w-full p-2.5 border rounded-md" type="password" name="password" value={form.password} onChange={handleChange} required />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Confirm Password</label>
+              <input className="w-full p-2.5 border rounded-md" type="password" name="confirm" value={form.confirm} onChange={handleChange} required />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -285,6 +297,7 @@ function Register() {
           {touched.agree && errors.agree && (
             <p className="mt-1 text-xs text-red-600">{errors.agree}</p>
           )}
+
           <button disabled={!agree} className="w-full bg-blue-600 disabled:bg-blue-300 text-white py-2.5 rounded-md" type="submit">Register</button>
           <p className="text-xs text-center text-gray-600">Already have an account? <a href="/login" className="text-blue-600">Log in</a></p>
         </form>
@@ -292,5 +305,5 @@ function Register() {
     </div>
   );
 }
-
+}
 export default Register;

@@ -1,3 +1,7 @@
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+// Correct data structure for therapists
 export const therapists = [
   { name: 'Dr. Dipti Yadav', price: 1800, tags: ['Anxiety', 'Stress Management', 'CBT'], image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=256&h=256&fit=crop&crop=faces' },
   { name: 'Dr. Sahebeet Kaur', price: 1650, tags: ['Depression', 'Trauma'], image: 'https://images.unsplash.com/photo-1554151228-14d9def656e4?w=256&h=256&fit=crop&crop=faces' },
@@ -7,12 +11,11 @@ export const therapists = [
   { name: 'Anis Syed', price: 1700, tags: ['Eating Disorders', 'Self-Esteem'], image: 'https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?w=256&h=256&fit=crop&crop=faces' }
 ];
 
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-
+// Helper function to format currency
 const formatINR = (amount) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
+// Therapist Card component with real images
 function TherapistCard({ t, onBook }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col">
@@ -41,6 +44,7 @@ function TherapistCard({ t, onBook }) {
   );
 }
 
+// Main Therapist Directory component with filtering logic
 function TherapistDirectory() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -67,6 +71,7 @@ function TherapistDirectory() {
       return matchesQuery && matchesSpec && matchesPrice;
     });
   }, [query, specialization, priceRange]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center gap-4">
@@ -110,13 +115,14 @@ function TherapistDirectory() {
           />
         ))}
       </div>
+
       {filtered.length === 0 && (
-        <div className="mt-8 text-sm text-gray-600">No therapists match your filters. Try clearing some filters.</div>
+        <div className="mt-8 text-sm text-gray-600 text-center py-10">
+          No therapists match your filters. Try clearing some filters to see more options.
+        </div>
       )}
     </div>
   );
 }
 
 export default TherapistDirectory;
-
-
