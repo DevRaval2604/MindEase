@@ -6,11 +6,30 @@ function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+
+  const validate = (values) => {
+    const nextErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+    if (!values.email) nextErrors.email = 'Email is required';
+    else if (!emailRegex.test(values.email)) nextErrors.email = 'Enter a valid email';
+
+    if (!values.password) nextErrors.password = 'Password is required';
+    return nextErrors;
+  };
+
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = e => {
     e.preventDefault();
+    const nextErrors = validate(form);
+    setErrors(nextErrors);
+    setTouched({ email: true, password: true });
+    if (Object.keys(nextErrors).length > 0) return;
+
     const users = JSON.parse(localStorage.getItem('auth:users') || '{}');
     const role = users[form.email] || 'client';
     console.log('Login attempt:', { email: form.email, role, users }); // Debug log
@@ -30,6 +49,53 @@ function Login() {
           <div className="mt-6 space-y-4">
             <div>
               <label className="block text-sm text-gray-700 mb-1">Email</label>
+              <input
+                className={`w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${touched.email && errors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={handleChange}
+                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                aria-invalid={Boolean(touched.email && errors.email)}
+                aria-describedby={touched.email && errors.email ? 'login-email-error' : undefined}
+                required
+              />
+              {touched.email && errors.email && (
+                <p id="login-email-error" className="mt-1 text-xs text-red-600">{errors.email}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Password</label>
+              <div className="relative">
+                <input
+                  className={`w-full p-2.5 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${touched.password && errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={handleChange}
+                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                  aria-invalid={Boolean(touched.password && errors.password)}
+                  aria-describedby={touched.password && errors.password ? 'login-password-error' : undefined}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-2 inline-flex items-center justify-center px-1.5 text-gray-500 hover:text-gray-700"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.77 18.77 0 0 1 5.06-6.94"/><path d="M1 1l22 22"/><path d="M9.88 9.88A3 3 0 0 0 12 15a3 3 0 0 0 2.12-.88"/><path d="M21 12s-3 8-9 8a10.94 10.94 0 0 1-5.06-2.06"/></svg>
+                  ) : (
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s3-8 11-8 11 8 11 8-3 8-11 8S1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
+              {touched.password && errors.password && (
+                <p id="login-password-error" className="mt-1 text-xs text-red-600">{errors.password}</p>
+              )}
               <input className="w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" name="email" placeholder="you@example.com" value={form.email} onChange={handleChange} required />
             </div>
             <div>
