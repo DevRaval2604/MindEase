@@ -1,5 +1,6 @@
 
 from pathlib import Path
+from datetime import timedelta
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,7 +25,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Apps Configurations 
+    'apps.accounts.apps.AccountsConfig',
+
+    # External Library Configurations
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
 ]
 
@@ -87,6 +94,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = "apps_accounts.User"  # label_name.ModelName
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -109,3 +118,35 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),   # adjust as needed
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,        # rotate refresh tokens on use
+    "BLACKLIST_AFTER_ROTATION": True,     # blacklist old refresh tokens on rotation
+    "ALGORITHM": "HS256",
+}
+
+
+# Cookie behavior for tokens
+JWT_COOKIE_SECURE = False  # set to True in production (requires HTTPS)
+JWT_COOKIE_SAMESITE = "Lax"  # "Lax" sensible default; use "Strict" if no cross-site needs
+ACCESS_COOKIE_NAME = "access_token"
+REFRESH_COOKIE_NAME = "refresh_token"
+
+
+# DRF config 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        # custom cookie-jwt auth class recommended (reads access token from cookie)
+        "apps.accounts.authentication.CookieJWTAuthentication",
+        # optionally keep header-based JWT
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+}
+
