@@ -87,24 +87,24 @@ function Login() {
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.77 18.77 0 0 1 5.06-6.94"/><path d="M1 1l22 22"/><path d="M9.88 9.88A3 3 0 0 0 12 15a3 3 0 0 0 2.12-.88"/><path d="M21 12s-3 8-9 8a10.94 10.94 0 0 1-5.06-2.06"/></svg>
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-10-8-10-8a18.77 18.77 0 0 1 5.06-6.94" /><path d="M1 1l22 22" /><path d="M9.88 9.88A3 3 0 0 0 12 15a3 3 0 0 0 2.12-.88" /><path d="M21 12s-3 8-9 8a10.94 10.94 0 0 1-5.06-2.06" /></svg>
                   ) : (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s3-8 11-8 11 8 11 8-3 8-11 8S1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s3-8 11-8 11 8 11 8-3 8-11 8S1 12 1 12Z" /><circle cx="12" cy="12" r="3" /></svg>
                   )}
                 </button>
               </div>
               {touched.password && errors.password && (
                 <p id="login-password-error" className="mt-1 text-xs text-red-600">{errors.password}</p>
               )}
-              <input className="w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" name="email" placeholder="you@example.com" value={form.email} onChange={handleChange} required />
+              {/* <input className="w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" type="email" name="email" placeholder="you@example.com" value={form.email} onChange={handleChange} required /> */}
             </div>
-            <div>
+            {/* <div>
               <label className="block text-sm text-gray-700 mb-1">Password</label>
               <input className="w-full p-2.5 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" type="password" name="password" placeholder="••••••••" value={form.password} onChange={handleChange} required />
-            </div>
+            </div> */}
             <button className="w-full bg-blue-600 text-white py-2.5 rounded-md hover:bg-blue-700" type="submit">Login</button>
           </div>
-          <p className="text-xs text-center text-gray-600 mt-4">Don't have an account? <a href="/register" className="text-blue-600 hover:underline">Register</a></p>
+          <p className="text-xs text-center text-gray-600 mt-4">Don't have an account? <a href="/Register" className="text-blue-600 hover:underline">Register</a></p>
         </form>
       </div>
     </div>

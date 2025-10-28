@@ -56,7 +56,7 @@ function CounsellorRegistration() {
       console.log('Counsellor registered:', { email: form.email, users }); // Debug log
     } catch (_) { }
     login('counsellor');
-    navigate('/counsellor/dashboard');
+    navigate('/counsellor/appointments');
   };
 
   return (

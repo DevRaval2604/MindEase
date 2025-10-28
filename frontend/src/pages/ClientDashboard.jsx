@@ -1,3 +1,6 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+
 function Card({ children, tone = 'default' }) {
   const toneClasses = {
     default: 'bg-white',
@@ -11,19 +14,51 @@ function Card({ children, tone = 'default' }) {
 
 function Sidebar() {
   return (
-    <aside className="w-60 shrink-0 border-r border-gray-200 p-4 hidden md:block sticky top-0 h-screen overflow-y-auto">
-      <div className="font-semibold text-gray-900 mb-4">MindEase</div>
-      <nav className="space-y-2 text-sm">
-        <a className="block px-3 py-2 rounded-md bg-blue-50 text-blue-700" href="#">Dashboard</a>
-        <a className="block px-3 py-2 rounded-md hover:bg-gray-50" href="/appointments/book">Appointments</a>
-        <a className="block px-3 py-2 rounded-md hover:bg-gray-50" href="/profile">Profile</a>
-        <a className="block px-3 py-2 rounded-md hover:bg-gray-50" href="#">Settings</a>
-      </nav>
+    <aside className="w-80 bg-white shadow-lg">
+      <div className="p-6">
+        <div className="flex items-center space-x-2 mb-8">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">M</span>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">MindEase</h1>
+        </div>
+
+        <nav className="space-y-2">
+          <Link 
+            to="/dashboard"
+            className="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors bg-blue-50 text-blue-700 border-r-2 border-blue-600"
+          >
+            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
+            </svg>
+            Dashboard
+          </Link>
+
+          <Link 
+            to="/appointments/book"
+            className="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors text-gray-600 hover:bg-gray-50"
+          >
+            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Appointments
+          </Link>
+
+          <Link 
+            to="/profile"
+            className="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors text-gray-600 hover:bg-gray-50"
+          >
+            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </Link>
+        </nav>
+      </div>
     </aside>
   );
 }
-
-import { useEffect, useMemo, useState } from 'react';
 
 function ClientDashboard() {
   const [appointments, setAppointments] = useState([]);
