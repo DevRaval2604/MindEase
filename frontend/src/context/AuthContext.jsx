@@ -3,16 +3,19 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 const AuthContext = createContext({
   isAuthenticated: false,
   userType: null,
-  login: () => {},
-  logout: () => {},
+  login: () => { },
+  logout: () => { },
 });
 
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const saved = localStorage.getItem('auth:isAuthenticated');
-    return saved === 'true';
-  });
-  const [userType, setUserType] = useState(() => localStorage.getItem('auth:userType'));
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userType, setUserType] = useState(null);
+
+  // Clear any existing authentication data on mount to ensure clean state
+  useEffect(() => {
+    localStorage.removeItem('auth:isAuthenticated');
+    localStorage.removeItem('auth:userType');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('auth:isAuthenticated', String(isAuthenticated));

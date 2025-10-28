@@ -63,7 +63,7 @@ function Navbar() {
           {!isAuthenticated ? (
             <>
               <NavLink to="/login" className={navLinkClass}>Sign In</NavLink>
-              <Link to="/register" className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700">Sign Up</Link>
+              <NavLink to="/register" className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700">Sign Up</NavLink>
             </>
           ) : (
             <button onClick={handleLogout} className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-black">Logout</button>
@@ -90,7 +90,7 @@ function Navbar() {
             {!isAuthenticated ? (
               <>
                 <NavLink to="/login" onClick={() => setMobileOpen(false)} className={mobileNavLinkClass}>Sign In</NavLink>
-                <Link to="/register" onClick={() => setMobileOpen(false)} className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700">Sign Up</Link>
+                <NavLink to="/register" onClick={() => setMobileOpen(false)} className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700">Sign Up</NavLink>
               </>
             ) : (
               <button onClick={handleLogout} className="inline-flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-black">Logout</button>

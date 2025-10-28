@@ -1,7 +1,7 @@
 function Home() {
   return (
     <div className="">
-      <section className="container-responsive pt-16 pb-12 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+      <section className="container-responsive pt-16 pb-12 pl-12 pr-12 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
         <div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
             Mental Wellness for Every Age, From Anywhere
@@ -23,7 +23,7 @@ function Home() {
         </div>
       </section>
 
-      <section className="bg-gray-50 border-t border-b border-gray-200">
+      <section className="bg-gray-50 border-t border-b border-gray-200 pl-10 pr-10">
         <div className="container-responsive py-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900">Why Choose MindEase?</h2>
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -44,7 +44,7 @@ function Home() {
       </section>
 
       {/* How it works */}
-      <section className="container-responsive py-12">
+      <section className="container-responsive py-12 pl-10 pr-10">
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900">How It Works</h2>
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -66,7 +66,7 @@ function Home() {
       </section>
 
       {/* Featured therapists teaser */}
-      <section className="bg-white border-t border-b border-gray-200">
+      <section className="bg-white border-t border-b border-gray-200 pl-10 pr-10">
         <div className="container-responsive py-12">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Featured Therapists</h2>
@@ -103,17 +103,17 @@ function Home() {
       </section>
 
       {/* Testimonials */}
-      <section className="container-responsive py-12">
+      <section className="container-responsive py-12 pl-10 pr-10">
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900">What Clients Say</h2>
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           {["MindEase helped me find the right therapist within a day.",
             "Booking sessions that fit my schedule has been effortless.",
             "I feel heard, supported, and more in control of my wellbeing."].map((quote, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-xl p-6">
-              <p className="text-gray-700">“{quote}”</p>
-              <div className="mt-4 text-sm text-gray-500">— Client #{i + 1}</div>
-            </div>
-          ))}
+              <div key={i} className="bg-white border border-gray-200 rounded-xl p-6">
+                <p className="text-gray-700">“{quote}”</p>
+                <div className="mt-4 text-sm text-gray-500">— Client #{i + 1}</div>
+              </div>
+            ))}
         </div>
       </section>
 

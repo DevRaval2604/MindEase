@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 function MyAppointments() {
     const [appointments, setAppointments] = useState([]);
@@ -33,10 +34,10 @@ function MyAppointments() {
             <aside className="w-60 shrink-0 border-r border-gray-200 p-4 hidden md:block sticky top-0 h-screen overflow-y-auto">
                 <div className="font-semibold text-gray-900 mb-4">MindEase</div>
                 <nav className="space-y-2 text-sm">
-                    <a className="block px-3 py-2 rounded-md hover:bg-gray-50" href="/counsellor/dashboard">My Profile</a>
-                    <a className="block px-3 py-2 rounded-md hover:bg-gray-50" href="/counsellor/manage-slots">Manage Slots</a>
-                    <a className="block px-3 py-2 rounded-md bg-blue-50 text-blue-700" href="/counsellor/appointments">My Appointments</a>
-                    <a className="block px-3 py-2 rounded-md hover:bg-gray-50" href="/counsellor/earnings">Earnings Summary</a>
+                    <Link className="block px-3 py-2 rounded-md hover:bg-gray-50" to="/counsellor/dashboard">My Profile</Link>
+                    <Link className="block px-3 py-2 rounded-md hover:bg-gray-50" to="/counsellor/manage-slots">Manage Slots</Link>
+                    <Link className="block px-3 py-2 rounded-md bg-blue-50 text-blue-700" to="/counsellor/appointments">My Appointments</Link>
+                    <Link className="block px-3 py-2 rounded-md hover:bg-gray-50" to="/counsellor/earnings">Earnings Summary</Link>
                     <div className="mt-6 text-xs text-gray-500">Settings • Help</div>
                 </nav>
             </aside>

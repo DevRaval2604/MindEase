@@ -16,13 +16,14 @@ import CounsellorProfile from './pages/CounsellorProfile';
 import ManageSlots from './pages/ManageSlots';
 import MyAppointments from './pages/MyAppointments';
 import EarningsSummary from './pages/EarningsSummary';
+import { useAuth } from './context/AuthContext.jsx';
 
 function ProtectedRoute({ children, requireCounsellor = false }) {
   // Lazy import to avoid circular deps
-  const { useAuth } = require('./context/AuthContext.jsx');
+  // const { useAuth } = require('./context/AuthContext.jsx');
   const { isAuthenticated, userType } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (requireCounsellor && userType !== 'counsellor') return <Navigate to="/" replace />;
+  if (requireCounsellor && userType !== 'counsellor') return <Navigate to="/counsellor/dashboard" replace />;
   return children;
 }
 
@@ -56,9 +57,9 @@ const App = () => {
             <Route path="/counsellor/appointments" element={<ProtectedRoute requireCounsellor><MyAppointments /></ProtectedRoute>} />
             <Route path="/counsellor/earnings" element={<ProtectedRoute requireCounsellor><EarningsSummary /></ProtectedRoute>} />
             <Route path="/resources" element={<Resources />} />
-            <Route path="/profile" element={<ClientProfile />} />
+            <Route path="/profile" element={<ProtectedRoute><ClientProfile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
-            <Route path="/dashboard" element={<ClientDashboard />} />
+            {/* <Route path="/dashboard" element={<ClientDashboard />} />
             <Route path="/appointments/book" element={<BookAppointment />} />
             <Route path="/counsellor/dashboard" element={<CounsellorDashboard />} />
             <Route path="/counsellor/profile" element={<CounsellorProfile />} />
@@ -66,7 +67,7 @@ const App = () => {
             <Route path="/counsellor/appointments" element={<MyAppointments />} />
             <Route path="/counsellor/earnings" element={<EarningsSummary />} />
             <Route path="/resources" element={<Resources />} />
-            <Route path="/profile" element={<ClientProfile />} />
+            <Route path="/profile" element={<ClientProfile />} /> */}
           </Routes>
         </main>
         <Footer />
