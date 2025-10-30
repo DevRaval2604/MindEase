@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 const AuthContext = createContext({
   isAuthenticated: false,
@@ -9,39 +11,77 @@ const AuthContext = createContext({
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userType, setUserType] = useState(null);
+  const [user, setUser] = useState(null); // {id,email,first_name,last_name,role}
 
-  // Clear any existing authentication data on mount to ensure clean state
+  // On app mount, try to refresh to restore session from HttpOnly cookies
   useEffect(() => {
-    localStorage.removeItem('auth:isAuthenticated');
-    localStorage.removeItem('auth:userType');
+    const didRunRef = { current: false };
+    const tryRefresh = async () => {
+      if (didRunRef.current) return; // avoid double-run in StrictMode
+      didRunRef.current = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/refresh/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({}),
+        });
+        if (res.ok) {
+          setIsAuthenticated(true);
+          // We don't receive user info here; keep previous non-sensitive info if stored
+          const cachedUser = sessionStorage.getItem('auth:user');
+          if (cachedUser) {
+            setUser(JSON.parse(cachedUser));
+          }
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+          sessionStorage.removeItem('auth:user');
+        }
+      } catch (_) {
+        setIsAuthenticated(false);
+        setUser(null);
+        sessionStorage.removeItem('auth:user');
+      }
+    };
+    tryRefresh();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('auth:isAuthenticated', String(isAuthenticated));
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (userType) {
-      localStorage.setItem('auth:userType', userType);
-    } else {
-      localStorage.removeItem('auth:userType');
+  const login = async (email, password) => {
+    const res = await fetch(`${API_BASE}/api/auth/login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const msg = await res.text();
+      throw new Error(msg || 'Login failed');
     }
-  }, [userType]);
-
-  const login = (type = 'client') => {
+    const data = await res.json();
     setIsAuthenticated(true);
-    setUserType(type);
+    setUser(data);
+    try { sessionStorage.setItem('auth:user', JSON.stringify(data)); } catch (_) { }
+    return data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+    } catch (_) { }
     setIsAuthenticated(false);
-    setUserType(null);
-    localStorage.removeItem('auth:isAuthenticated');
-    localStorage.removeItem('auth:userType');
+    setUser(null);
+    sessionStorage.removeItem('auth:user');
   };
 
-  const value = useMemo(() => ({ isAuthenticated, userType, login, logout }), [isAuthenticated, userType]);
+  const userType = user?.role ?? null;
+
+  const value = useMemo(() => ({ isAuthenticated, userType, user, login, logout }), [isAuthenticated, userType, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

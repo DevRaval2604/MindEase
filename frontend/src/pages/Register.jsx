@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 function Register() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -62,7 +63,7 @@ function Register() {
     return nextErrors;
   };
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const nextErrors = validate(form);
     setErrors(nextErrors);
@@ -81,47 +82,52 @@ function Register() {
     });
     if (Object.keys(nextErrors).length > 0) return;
 
-    if (form.accountType === 'Client') {
-      try {
-        const initialProfile = {
-          fullName: `${form.firstName} ${form.lastName}`.trim(),
-          email: form.email,
-          phone: form.phone || '',
-          gender: '',
-          dob: '',
-          about: '',
-          avatar: '',
-          ageGroup: form.ageGroup || '',
-        };
-        localStorage.setItem('clientProfile', JSON.stringify(initialProfile));
-        const users = JSON.parse(localStorage.getItem('auth:users') || '{}');
-        users[form.email] = 'client';
-        localStorage.setItem('auth:users', JSON.stringify(users));
-      } catch (_) {}
-      login('client');
-      navigate('/dashboard');
-    } else {
-      try {
-        const profile = {
-          fullName: `${form.firstName} ${form.lastName}`.trim(),
-          email: form.email,
-          phone: form.phone || '',
-          licenseNumber: form.licenseNumber,
-          specialization: form.specialization,
-          fees: form.fees,
-          availability: form.availability,
-          bio: '',
-          avatar: '',
-        };
-        localStorage.setItem('counsellorProfile', JSON.stringify(profile));
-        const users = JSON.parse(localStorage.getItem('auth:users') || '{}');
-        users[form.email] = 'counsellor';
-        localStorage.setItem('auth:users', JSON.stringify(users));
-      } catch (error) {
-        console.error('Error saving counsellor profile:', error);
+    // Prepare payload for backend
+    const payload = {
+      first_name: form.firstName.trim(),
+      last_name: form.lastName.trim(),
+      email: form.email.trim().toLowerCase(),
+      phone: form.phone,
+      role: form.accountType.toLowerCase(), // 'client' | 'counsellor'
+      password: form.password,
+      password2: form.confirm,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/signup/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        let detail = 'Registration failed';
+        console.log(res)
+        try {
+          const data = await res.json();
+          // Map backend field errors to our form fields when possible
+          const fieldErrors = {};
+          if (data.email) fieldErrors.email = Array.isArray(data.email) ? data.email[0] : String(data.email);
+          if (data.first_name) fieldErrors.firstName = Array.isArray(data.first_name) ? data.first_name[0] : String(data.first_name);
+          if (data.last_name) fieldErrors.lastName = Array.isArray(data.last_name) ? data.last_name[0] : String(data.last_name);
+          if (data.phone) fieldErrors.phone = Array.isArray(data.phone) ? data.phone[0] : String(data.phone);
+          if (data.role) fieldErrors.accountType = Array.isArray(data.role) ? data.role[0] : String(data.role);
+          if (data.password) fieldErrors.password = Array.isArray(data.password) ? data.password[0] : String(data.password);
+          if (data.password2) fieldErrors.confirm = Array.isArray(data.password2) ? data.password2[0] : String(data.password2);
+          if (Object.keys(fieldErrors).length) setErrors(prev => ({ ...prev, ...fieldErrors }));
+          if (data.detail) detail = String(data.detail);
+        } catch (_) {
+          const msg = await res.text();
+          if (msg) detail = msg;
+        }
+        throw new Error(detail);
       }
-      login('counsellor');
-      navigate('/');
+      // Auto-login after successful registration
+      const user = await login(form.email, form.password);
+      const role = user?.role || payload.role || 'client';
+      navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
+    } catch (err) {
+      setErrors(prev => ({ ...prev, form: err.message || 'Registration failed. Please check your details.' }));
     }
   };
 
@@ -257,6 +263,9 @@ function Register() {
           <button disabled={!agree} className="w-full bg-blue-600 disabled:bg-blue-300 text-white py-2.5 rounded-md" type="submit">
             Register
           </button>
+          {errors.form && (
+            <p className="text-sm text-red-600 mt-2" role="alert">{errors.form}</p>
+          )}
         </form>
       </div>
     </div>

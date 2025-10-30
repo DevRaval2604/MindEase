@@ -23,18 +23,20 @@ function Login() {
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
     const nextErrors = validate(form);
     setErrors(nextErrors);
     setTouched({ email: true, password: true });
     if (Object.keys(nextErrors).length > 0) return;
 
-    const users = JSON.parse(localStorage.getItem('auth:users') || '{}');
-    const role = users[form.email] || 'client';
-    console.log('Login attempt:', { email: form.email, role, users }); // Debug log
-    login(role);
-    navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
+    try {
+      const data = await login(form.email, form.password);
+      const role = data?.role || 'client';
+      navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
+    } catch (err) {
+      setErrors({ form: 'Invalid email or password' });
+    }
   };
 
   return (
@@ -47,6 +49,9 @@ function Login() {
           <h2 className="text-xl font-semibold text-center">Welcome Back</h2>
           <p className="text-sm text-center text-gray-600 mt-1">Enter your details to log in.</p>
           <div className="mt-6 space-y-4">
+            {errors.form && (
+              <p className="text-sm text-red-600" role="alert">{errors.form}</p>
+            )}
             <div>
               <label className="block text-sm text-gray-700 mb-1">Email</label>
               <input
