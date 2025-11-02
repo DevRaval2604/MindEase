@@ -72,32 +72,8 @@ function Home() {
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Featured Therapists</h2>
             <a href="/therapists" className="text-sm text-blue-600 hover:text-blue-700">View all</a>
           </div>
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {[{
-              name: 'Dr. Dipti Yadav',
-              image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=256&h=256&fit=crop&crop=faces',
-              tags: ['Anxiety', 'CBT']
-            }, {
-              name: 'Aditi Shah',
-              image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=256&h=256&fit=crop&crop=faces',
-              tags: ['Addiction', 'Group Therapy']
-            }, {
-              name: 'Nidhi Rane',
-              image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=256&h=256&fit=crop&crop=faces',
-              tags: ['Child Therapy']
-            }].map((t) => (
-              <div key={t.name} className="bg-white border border-gray-200 rounded-xl p-6 flex items-center gap-4">
-                <img src={t.image} alt={t.name} className="w-16 h-16 rounded-full object-cover" />
-                <div>
-                  <div className="font-semibold text-gray-900">{t.name}</div>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {t.tags.map((tag) => (
-                      <span key={tag} className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{tag}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="mt-6 text-sm text-gray-600 text-center py-10">
+            <a href="/therapists" className="text-blue-600 hover:text-blue-700 underline">Explore our available therapists</a>
           </div>
         </div>
       </section>

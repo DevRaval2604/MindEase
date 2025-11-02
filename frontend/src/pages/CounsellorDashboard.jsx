@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 function Section({ title, children, action }) {
     return (
@@ -15,6 +18,7 @@ function Section({ title, children, action }) {
 
 function CounsellorDashboard() {
     const navigate = useNavigate();
+    const { isAuthenticated, user } = useAuth();
     const [activeTab, setActiveTab] = useState('appointments');
     const [profile, setProfile] = useState({
         fullName: '',
@@ -28,6 +32,8 @@ function CounsellorDashboard() {
     });
     const [appointments, setAppointments] = useState([]);
     const [slots, setSlots] = useState([]);
+    const [clients, setClients] = useState([]); // Store client data from database
+    const [loadingClients, setLoadingClients] = useState(true);
     const [newSlot, setNewSlot] = useState({
         date: '',
         startTime: '',
@@ -42,24 +48,117 @@ function CounsellorDashboard() {
     });
     const [selectedPeriod, setSelectedPeriod] = useState('daily');
 
+    // Fetch counsellor profile from database
     useEffect(() => {
-        try {
-            const saved = JSON.parse(localStorage.getItem('counsellorProfile') || '{}');
-            setProfile(p => ({ ...p, ...saved }));
-        } catch (error) {
-            console.error('CounsellorDashboard: Error loading profile data:', error);
-        }
-    }, []);
+        const fetchProfile = async () => {
+            if (!isAuthenticated) return;
 
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/me/`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setProfile(prev => ({
+                        ...prev,
+                        fullName: data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || '',
+                        email: data.email || '',
+                        phone: data.phone || '',
+                    }));
+
+                    // Load additional fields from localStorage
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('counsellorProfile') || '{}');
+                        if (saved.licenseNumber || saved.specialization || saved.fees || saved.availability || saved.bio) {
+                            setProfile(prev => ({
+                                ...prev,
+                                licenseNumber: saved.licenseNumber || '',
+                                specialization: saved.specialization || '',
+                                fees: saved.fees || '',
+                                availability: saved.availability || '',
+                                bio: saved.bio || '',
+                            }));
+                        }
+                    } catch (e) {
+                        console.error('Error loading localStorage data:', e);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching profile:', error);
+            }
+        };
+
+        fetchProfile();
+    }, [isAuthenticated]);
+
+    // Fetch clients from database (users with role='client')
     useEffect(() => {
-        try {
-            const data = JSON.parse(localStorage.getItem('appointments') || '[]');
-            setAppointments(Array.isArray(data) ? data : []);
-            calculateEarnings(data);
-        } catch (_) {
+        const fetchClients = async () => {
+            if (!isAuthenticated) {
+                setClients([]);
+                setLoadingClients(false);
+                return;
+            }
+
+            try {
+                // For now, we'll use client data from appointments since there's no direct client endpoint
+                // In a real app, you'd have a /api/auth/clients/ endpoint
+                setLoadingClients(false);
+            } catch (error) {
+                console.error('Error fetching clients:', error);
+                setClients([]);
+                setLoadingClients(false);
+            }
+        };
+
+        fetchClients();
+    }, [isAuthenticated]);
+
+    // Load appointments filtered by logged-in counsellor
+    useEffect(() => {
+        if (!isAuthenticated || !user?.id) {
             setAppointments([]);
+            return;
         }
-    }, []);
+
+        const loadAppointments = () => {
+            try {
+                const data = JSON.parse(localStorage.getItem('appointments') || '[]');
+                const appointmentsArray = Array.isArray(data) ? data : [];
+
+                // Filter appointments to only show those for this counsellor (therapistId matches logged-in user)
+                const counsellorAppointments = appointmentsArray.filter(apt => {
+                    // Match by therapistId if available, or check if therapistEmail matches logged-in user's email
+                    return apt.therapistId === user.id || apt.therapistEmail === user.email;
+                });
+
+                console.log('Loaded counsellor appointments:', counsellorAppointments);
+                setAppointments(counsellorAppointments);
+                calculateEarnings(counsellorAppointments);
+            } catch (error) {
+                console.error('Error loading appointments:', error);
+                setAppointments([]);
+            }
+        };
+
+        loadAppointments();
+
+        // Refresh when window gains focus
+        const handleFocus = () => {
+            loadAppointments();
+        };
+
+        window.addEventListener('storage', loadAppointments);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            window.removeEventListener('storage', loadAppointments);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [isAuthenticated, user]);
 
     useEffect(() => {
         try {
@@ -70,15 +169,15 @@ function CounsellorDashboard() {
         }
     }, []);
 
+    // Get client details from appointment data (stored when booking)
     function getClientDetails(appointment) {
-        // In a real app, this would fetch from a database
-        // For now, we'll use mock data based on appointment ID
-        const mockClients = {
-            1: { name: 'John Doe', email: 'john@example.com', phone: '+91 98765 43210' },
-            2: { name: 'Jane Smith', email: 'jane@example.com', phone: '+91 98765 43211' },
-            3: { name: 'Mike Johnson', email: 'mike@example.com', phone: '+91 98765 43212' }
+        // Use actual client data from appointment instead of mock data
+        return {
+            name: appointment.clientName || 'Client',
+            email: appointment.clientEmail || 'N/A',
+            phone: appointment.clientPhone || 'N/A',
+            id: appointment.clientId || null,
         };
-        return mockClients[appointment.id % 3 + 1] || { name: 'Client', email: 'client@example.com', phone: 'N/A' };
     }
 
     function calculateEarnings(appointmentData) {
@@ -478,7 +577,7 @@ function CounsellorDashboard() {
                                                                 </div>
                                                                 <div>
                                                                     <h3 className="text-xl font-semibold text-gray-900">{client.name}</h3>
-                                                                    <p className="text-sm text-gray-600">{appointment.therapistName}</p>
+                                                                    <p className="text-sm text-gray-600">Client Appointment</p>
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -495,16 +594,18 @@ function CounsellorDashboard() {
                                                                     <p className="font-semibold text-gray-900">{client.phone}</p>
                                                                 </div>
                                                             </div>
-                                                            <div className="mt-4">
-                                                                <span className="text-gray-500 font-medium">Specialization:</span>
-                                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                                    {appointment.tags.map(tag => (
-                                                                        <span key={tag} className="px-3 py-1 text-sm rounded-full bg-purple-100 text-purple-700 border border-purple-200 font-medium">
-                                                                            {tag}
-                                                                        </span>
-                                                                    ))}
+                                                            {appointment.tags && appointment.tags.length > 0 && (
+                                                                <div className="mt-4">
+                                                                    <span className="text-gray-500 font-medium">Tags:</span>
+                                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                                        {appointment.tags.map((tag, idx) => (
+                                                                            <span key={idx} className="px-3 py-1 text-sm rounded-full bg-purple-100 text-purple-700 border border-purple-200 font-medium">
+                                                                                {tag}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
+                                                            )}
                                                         </div>
                                                         <div className="flex flex-col gap-3">
                                                             <span className="px-4 py-2 text-sm rounded-full bg-green-100 text-green-700 border border-green-200 font-medium">

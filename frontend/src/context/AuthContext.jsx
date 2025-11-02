@@ -26,19 +26,25 @@ export function AuthProvider({ children }) {
           credentials: 'include',
           body: JSON.stringify({}),
         });
+        console.log('AuthContext: Refresh response status:', res.status);
         if (res.ok) {
           setIsAuthenticated(true);
           // We don't receive user info here; keep previous non-sensitive info if stored
           const cachedUser = sessionStorage.getItem('auth:user');
           if (cachedUser) {
+            console.log('AuthContext: Loaded cached user:', cachedUser);
             setUser(JSON.parse(cachedUser));
+          } else {
+            console.log('AuthContext: No cached user found');
           }
         } else {
+          console.log('AuthContext: Refresh failed, clearing auth state');
           setIsAuthenticated(false);
           setUser(null);
           sessionStorage.removeItem('auth:user');
         }
-      } catch (_) {
+      } catch (err) {
+        console.log('AuthContext: Refresh error:', err);
         setIsAuthenticated(false);
         setUser(null);
         sessionStorage.removeItem('auth:user');

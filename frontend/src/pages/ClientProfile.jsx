@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 function Label({ children }) {
   return <div className="text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide">{children}</div>;
 }
 
 function ClientProfile() {
+  const { isAuthenticated } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({
     fullName: '',
     email: '',
@@ -16,12 +21,70 @@ function ClientProfile() {
     avatar: '',
   });
 
+  // Fetch user profile from database for logged-in user
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('clientProfile') || '{}');
-      setProfile(p => ({ ...p, ...saved }));
-    } catch (_) { }
-  }, []);
+    const fetchProfile = async () => {
+      if (!isAuthenticated) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me/`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log('ClientProfile: Loaded data from database:', data);
+
+          // Get database fields - ensure all fields are properly extracted
+          const dbFullName = data.full_name || `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim();
+          const dbEmail = data.email || '';
+          const dbPhone = data.phone || '';
+          const dbAvatar = data.profile_picture || '';
+
+          // Load additional fields from localStorage if they exist
+          let saved = {};
+          try {
+            saved = JSON.parse(localStorage.getItem('clientProfile') || '{}');
+          } catch (e) {
+            console.error('Error loading localStorage data:', e);
+          }
+
+          // Set profile with database data (priority) and localStorage data (additional fields)
+          setProfile({
+            fullName: dbFullName,
+            email: dbEmail,
+            phone: dbPhone,
+            avatar: dbAvatar,
+            // Additional fields from localStorage
+            gender: saved.gender || '',
+            dob: saved.dob || '',
+            about: saved.about || '',
+          });
+
+          console.log('ClientProfile: Profile set with database data:', {
+            fullName: dbFullName,
+            email: dbEmail,
+            phone: dbPhone,
+            avatar: dbAvatar
+          });
+        } else {
+          const errorText = await res.text();
+          console.error('Failed to fetch profile. Status:', res.status, 'Response:', errorText);
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [isAuthenticated]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -38,10 +101,75 @@ function ClientProfile() {
     reader.readAsDataURL(file);
   }
 
-  function handleSave(e) {
+  async function handleSave(e) {
     e.preventDefault();
-    localStorage.setItem('clientProfile', JSON.stringify(profile));
-    alert('Profile saved');
+
+    if (!isAuthenticated) {
+      alert('Please login to save your profile');
+      return;
+    }
+
+    try {
+      // Update basic profile fields in database
+      const updateData = {
+        first_name: profile.fullName.split(' ')[0] || '',
+        last_name: profile.fullName.split(' ').slice(1).join(' ') || '',
+        phone: profile.phone || '',
+        profile_picture: profile.avatar || '',
+      };
+
+      const res = await fetch(`${API_BASE}/api/auth/me/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(updateData),
+      });
+
+      if (res.ok) {
+        const updatedData = await res.json();
+        console.log('Profile updated in database:', updatedData);
+
+        // Save additional fields (gender, dob, about) to localStorage
+        // These can be moved to database later if needed
+        const additionalData = {
+          gender: profile.gender,
+          dob: profile.dob,
+          about: profile.about,
+        };
+        localStorage.setItem('clientProfile', JSON.stringify(additionalData));
+
+        alert('Profile saved successfully');
+      } else {
+        const errorData = await res.json();
+        console.error('Failed to update profile:', errorData);
+        alert('Failed to save profile. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Error saving profile. Please try again.');
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen">
+        <aside className="w-80 bg-white shadow-lg">
+          <div className="p-6">
+            <div className="flex items-center space-x-2 mb-8">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">M</span>
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">MindEase</h1>
+            </div>
+          </div>
+        </aside>
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="text-xl text-gray-600">Loading profile...</div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

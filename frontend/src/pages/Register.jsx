@@ -87,11 +87,14 @@ function Register() {
       first_name: form.firstName.trim(),
       last_name: form.lastName.trim(),
       email: form.email.trim().toLowerCase(),
-      phone: form.phone,
+      phone: form.phone.trim(), // Ensure phone is trimmed and is a string of exactly 10 digits
       role: form.accountType.toLowerCase(), // 'client' | 'counsellor'
       password: form.password,
       password2: form.confirm,
     };
+
+    // Log payload for debugging (remove in production)
+    console.log('Registration payload:', { ...payload, password: '***', password2: '***' });
 
     try {
       const res = await fetch(`${API_BASE}/api/auth/signup/`, {
@@ -102,9 +105,9 @@ function Register() {
       });
       if (!res.ok) {
         let detail = 'Registration failed';
-        console.log(res)
         try {
           const data = await res.json();
+          console.error('Registration error response:', data);
           // Map backend field errors to our form fields when possible
           const fieldErrors = {};
           if (data.email) fieldErrors.email = Array.isArray(data.email) ? data.email[0] : String(data.email);
@@ -116,7 +119,12 @@ function Register() {
           if (data.password2) fieldErrors.confirm = Array.isArray(data.password2) ? data.password2[0] : String(data.password2);
           if (Object.keys(fieldErrors).length) setErrors(prev => ({ ...prev, ...fieldErrors }));
           if (data.detail) detail = String(data.detail);
-        } catch (_) {
+          // If there's no detail but there are field errors, construct a message
+          if (!data.detail && Object.keys(fieldErrors).length > 0) {
+            detail = 'Please correct the errors below';
+          }
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
           const msg = await res.text();
           if (msg) detail = msg;
         }
