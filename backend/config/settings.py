@@ -1,5 +1,7 @@
 
 from pathlib import Path
+from datetime import timedelta
+import os
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -12,7 +14,27 @@ SECRET_KEY = 'django-insecure-%35x3m_8enp3+enf%l3w17uweq7m90i4_11g6wmwu5s3x*)j&p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+
+# allow only your React dev server
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# allow cookies (important since you use HttpOnly cookies for tokens)
+CORS_ALLOW_CREDENTIALS = True
+
+# optionally allow extra headers the client might send
+CORS_ALLOW_HEADERS = [
+    "content-type",
+    "accept",
+    "authorization",
+    "x-csrftoken",
+]
+
+
+
+# ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -24,11 +46,21 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Apps Configurations 
+    'apps.accounts.apps.AccountsConfig',
+    'apps.search.apps.SearchConfig',
+    'apps.resources.apps.ResourcesConfig',
+
+    # External Library Configurations
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
+    "drf_spectacular",
     'corsheaders',
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -87,6 +119,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = "apps_accounts.User"  # label_name.ModelName
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -109,3 +143,79 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),   # adjust as needed
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,        # rotate refresh tokens on use
+    "BLACKLIST_AFTER_ROTATION": False,     # blacklist old refresh tokens on rotation
+    "ALGORITHM": "HS256",
+}
+
+
+# Cookie behavior for tokens
+JWT_COOKIE_SECURE = False  # set to True in production (requires HTTPS)
+JWT_COOKIE_SAMESITE = "Lax"  # "Lax" sensible default; use "Strict" if no cross-site needs
+ACCESS_COOKIE_NAME = "access_token"
+REFRESH_COOKIE_NAME = "refresh_token"
+
+
+
+# DRF config 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        # custom cookie-jwt auth class recommended (reads access token from cookie)
+        "apps.accounts.authentication.CookieJWTAuthentication",
+        # optionally keep header-based JWT
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    # Use ScopedRateThrottle so views can define throttle_scope
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    # Set per-scope rates 
+    "DEFAULT_THROTTLE_RATES": {
+        "signup": "5/min",   
+        "resend_verification": "10/day",
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+
+
+# CACHES must be configured because throttling uses cache
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache", 
+    }
+}
+
+
+# FRONTEND_URL used by send_verification_email
+FRONTEND_URL = "http://localhost:5173/"  
+
+
+# Use Gmail’s SMTP server
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST        = 'smtp.gmail.com'
+EMAIL_PORT        = 587
+EMAIL_USE_TLS     = True
+
+DEFAULT_FROM_EMAIL = 'paras0mani6@gmail.com'
+
+EMAIL_HOST_USER    = 'paras0mani6@gmail.com'
+EMAIL_HOST_PASSWORD= 'toihpuhoxmmixpho'  
+
+
+
+
+
+
+
+
+
