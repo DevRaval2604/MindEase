@@ -1,0 +1,33 @@
+========================================
+   MindEase Application - RUNNING
+========================================
+
+✅ Frontend Server: RUNNING
+   URL: http://localhost:5173
+   Process ID: 6000
+
+✅ Backend Server: RUNNING
+   URL: http://localhost:8000
+   API Base: http://localhost:8000/api/
+   Process ID: 7716
+
+📋 Available API Endpoints:
+   - http://localhost:8000/api/auth/login/
+   - http://localhost:8000/api/auth/signup/
+   - http://localhost:8000/api/auth/profile/
+   - http://localhost:8000/api/resources/
+   - http://localhost:8000/api/search/counsellors/
+
+🚀 Application is ready to use!
+   Open: http://localhost:5173 in your browser
+
+========================================
+To stop servers:
+   - Close the terminal windows or press Ctrl+C
+   - Or kill processes: 
+     Frontend (Node): Process ID 6000
+     Backend (Python): Process ID 7716
+========================================
+
+
+
