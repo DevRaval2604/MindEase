@@ -27,7 +27,11 @@ class CounsellorSearchView(ListAPIView):
         qs = (
             CounsellorProfile.objects
             .select_related("user")
+<<<<<<< HEAD:backend/apps/search/views.py
             .prefetch_related("specializations", "availability")
+=======
+            .prefetch_related("specializations")
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/apps/search/views.py
             .filter(user__is_active=True)
         )
 

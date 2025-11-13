@@ -22,6 +22,7 @@ def send_verification_email(user, raw_token):
     Sends a verification email using HTML + text templates.
     Gmail SMTP will be used from settings.py.
     """
+<<<<<<< HEAD:backend/apps/accounts/utils.py
     from django.utils import timezone
     from datetime import timedelta
     
@@ -59,6 +60,19 @@ def send_verification_email(user, raw_token):
         # Fallback to simple email
         text_body = f"Hi {full_name},\n\nPlease verify your email by clicking this link:\n{verify_url}\n\nThis link expires in 24 hours.\n\nThanks,\nThe MindEase Team"
         html_body = f"<html><body><p>Hi {full_name},</p><p>Please verify your email by clicking this link:</p><p><a href='{verify_url}'>Verify Email</a></p><p>This link expires in 24 hours.</p><p>Thanks,<br>The MindEase Team</p></body></html>"
+=======
+    frontend = settings.FRONTEND_URL.rstrip("/")
+    verify_url = f"{frontend}/verify-email?token={raw_token}"
+
+    context = {
+        "user": user,
+        "verify_url": verify_url,
+    }
+
+    subject = "Verify your MindEase email"
+    text_body = render_to_string("emails/verify_email.txt", context)
+    html_body = render_to_string("emails/verify_email.html", context)
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/apps/accounts/utils.py
 
     msg = EmailMultiAlternatives(
         subject=subject,
@@ -69,6 +83,7 @@ def send_verification_email(user, raw_token):
 
     msg.attach_alternative(html_body, "text/html")
 
+<<<<<<< HEAD:backend/apps/accounts/utils.py
     # Send email (synchronously) - wrap in try/except to handle errors gracefully
     import logging
     logger = logging.getLogger(__name__)
@@ -86,3 +101,7 @@ def send_verification_email(user, raw_token):
         # Print to console as well for immediate visibility
         print(f"ERROR: Failed to send email to {user.email}: {e}")
         raise  # Re-raise so the view can handle it
+=======
+    # Send email (synchronously)
+    msg.send(fail_silently=False)
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/apps/accounts/utils.py

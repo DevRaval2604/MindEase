@@ -51,7 +51,10 @@ INSTALLED_APPS = [
     'apps.accounts.apps.AccountsConfig',
     'apps.search.apps.SearchConfig',
     'apps.resources.apps.ResourcesConfig',
+<<<<<<< HEAD:backend/config/settings.py
     'apps.appointments.apps.AppointmentsConfig',
+=======
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/config/settings.py
 
     # External Library Configurations
     'rest_framework',
@@ -182,7 +185,11 @@ REST_FRAMEWORK = {
     # Set per-scope rates 
     "DEFAULT_THROTTLE_RATES": {
         "signup": "5/min",   
+<<<<<<< HEAD:backend/config/settings.py
         "resend_verification": "10/hour",  # Increased from 10/day to 10/hour for testing
+=======
+        "resend_verification": "10/day",
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/config/settings.py
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -198,6 +205,7 @@ CACHES = {
 
 
 # FRONTEND_URL used by send_verification_email
+<<<<<<< HEAD:backend/config/settings.py
 FRONTEND_URL = "http://localhost:5173/"
 
 # Configure logging to see email sending details
@@ -226,6 +234,9 @@ LOGGING = {
         },
     },
 }  
+=======
+FRONTEND_URL = "http://localhost:5173/"  
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/config/settings.py
 
 
 # Use Gmail’s SMTP server
@@ -237,6 +248,7 @@ EMAIL_USE_TLS     = True
 DEFAULT_FROM_EMAIL = 'paras0mani6@gmail.com'
 
 EMAIL_HOST_USER    = 'paras0mani6@gmail.com'
+<<<<<<< HEAD:backend/config/settings.py
 EMAIL_HOST_PASSWORD= 'toihpuhoxmmixpho'
 
 # Razorpay Configuration
@@ -247,6 +259,13 @@ RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'rXEHjjj9DR2kwUJ22I4
 # Replace with your actual Google Form URL after creating a feedback form
 # To create: Go to https://forms.google.com, create a form, click "Send" and copy the link
 FEEDBACK_FORM_URL = os.environ.get('FEEDBACK_FORM_URL', 'https://docs.google.com/forms/d/e/1FAIpQLSdEXAMPLE/viewform')
+=======
+EMAIL_HOST_PASSWORD= 'toihpuhoxmmixpho'  
+
+
+
+
+>>>>>>> 5854e658564d1d000f65d4d4959a8a542dd062b6:backend_backup/config/settings.py
 
 
 
