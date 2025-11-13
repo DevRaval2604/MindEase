@@ -54,7 +54,7 @@ function CounsellorDashboard() {
             if (!isAuthenticated) return;
 
             try {
-                const res = await fetch(`${API_BASE}/api/auth/me/`, {
+                const res = await fetch(`${API_BASE}/api/auth/profile/`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -62,29 +62,38 @@ function CounsellorDashboard() {
 
                 if (res.ok) {
                     const data = await res.json();
-                    setProfile(prev => ({
-                        ...prev,
-                        fullName: data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || '',
+                    const fullName = `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim();
+                    
+                    // Handle specializations - backend returns array of objects
+                    let specializationName = '';
+                    if (data.specializations && data.specializations.length > 0) {
+                        if (typeof data.specializations[0] === 'object' && data.specializations[0].name) {
+                            specializationName = data.specializations[0].name;
+                        } else if (typeof data.specializations[0] === 'string') {
+                            specializationName = data.specializations[0];
+                        }
+                    }
+                    
+                    // Handle availability - backend returns array of objects
+                    let availabilityName = '';
+                    if (data.availability && data.availability.length > 0) {
+                        if (typeof data.availability[0] === 'object' && data.availability[0].name) {
+                            availabilityName = data.availability[0].name;
+                        } else if (typeof data.availability[0] === 'string') {
+                            availabilityName = data.availability[0];
+                        }
+                    }
+
+                    setProfile({
+                        fullName: fullName || '',
                         email: data.email || '',
                         phone: data.phone || '',
-                    }));
-
-                    // Load additional fields from localStorage
-                    try {
-                        const saved = JSON.parse(localStorage.getItem('counsellorProfile') || '{}');
-                        if (saved.licenseNumber || saved.specialization || saved.fees || saved.availability || saved.bio) {
-                            setProfile(prev => ({
-                                ...prev,
-                                licenseNumber: saved.licenseNumber || '',
-                                specialization: saved.specialization || '',
-                                fees: saved.fees || '',
-                                availability: saved.availability || '',
-                                bio: saved.bio || '',
-                            }));
-                        }
-                    } catch (e) {
-                        console.error('Error loading localStorage data:', e);
-                    }
+                        licenseNumber: data.license_number || '',
+                        specialization: specializationName,
+                        fees: data.fees_per_session ? String(data.fees_per_session) : '',
+                        availability: availabilityName,
+                        bio: data.bio || data.experience || '',
+                    });
                 }
             } catch (error) {
                 console.error('Error fetching profile:', error);

@@ -8,6 +8,7 @@ import CounsellorRegistration from './pages/CounsellorRegistration';
 import TherapistDirectory from './pages/TherapistDirectory';
 import ClientDashboard from './pages/ClientDashboard';
 import BookAppointment from './pages/BookAppointment';
+import Payment from './pages/Payment';
 import CounsellorDashboard from './pages/CounsellorDashboard';
 import Resources from './pages/Resources';
 import Footer from './components/Footer';
@@ -16,6 +17,7 @@ import CounsellorProfile from './pages/CounsellorProfile';
 import ManageSlots from './pages/ManageSlots';
 import MyAppointments from './pages/MyAppointments';
 import EarningsSummary from './pages/EarningsSummary';
+import VerifyEmail from './pages/VerifyEmail';
 import { useAuth } from './context/AuthContext.jsx';
 
 function ProtectedRoute({ children, requireCounsellor = false }) {
@@ -48,9 +50,11 @@ const App = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/register/counsellor" element={<CounsellorRegistration />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/therapists" element={<TherapistDirectory />} />
             <Route path="/dashboard" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
             <Route path="/appointments/book" element={<ProtectedRoute><BookAppointment /></ProtectedRoute>} />
+            <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
             <Route path="/counsellor/dashboard" element={<ProtectedRoute requireCounsellor><CounsellorDashboard /></ProtectedRoute>} />
             <Route path="/counsellor/profile" element={<ProtectedRoute requireCounsellor><CounsellorProfile /></ProtectedRoute>} />
             <Route path="/counsellor/manage-slots" element={<ProtectedRoute requireCounsellor><ManageSlots /></ProtectedRoute>} />

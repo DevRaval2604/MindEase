@@ -25,6 +25,8 @@ function Register() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -83,57 +85,242 @@ function Register() {
     if (Object.keys(nextErrors).length > 0) return;
 
     // Prepare payload for backend
+    // Backend expects phone as string of exactly 10 digits
+    const phoneNumber = form.phone.trim().replace(/\D/g, ''); // Remove all non-digits
+    if (phoneNumber.length !== 10) {
+      setErrors(prev => ({ ...prev, phone: 'Phone must be exactly 10 digits' }));
+      return;
+    }
+
     const payload = {
       first_name: form.firstName.trim(),
       last_name: form.lastName.trim(),
       email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim(), // Ensure phone is trimmed and is a string of exactly 10 digits
-      role: form.accountType.toLowerCase(), // 'client' | 'counsellor'
+      phone: phoneNumber, // Backend expects exactly 10 digits as string
+      account_type: form.accountType.toLowerCase(), // Backend uses 'account_type' not 'role'
       password: form.password,
-      password2: form.confirm,
+      confirm_password: form.confirm, // Backend expects 'confirm_password' not 'password2'
+      agreed_terms: agree, // Backend requires agreed_terms field
     };
 
+    // Add client-specific fields (age_group mapping)
+    if (form.accountType.toLowerCase() === 'client') {
+      // Map frontend age group labels to backend values
+      const ageGroupMap = {
+        'Under 18': 'under_18',
+        '18-25': '18_25',
+        '26-40': '26_40',
+        '41-60': '41_60',
+        '60+': '60_plus',
+      };
+      const ageGroupValue = ageGroupMap[form.ageGroup];
+      if (ageGroupValue) {
+        payload.age_group = ageGroupValue;
+      }
+    }
+
+    // Add counsellor-specific fields if role is counsellor
+    if (form.accountType === 'Counsellor') {
+      payload.license_number = form.licenseNumber.trim() || null;
+
+      // Backend expects specializations as list of integers (IDs), not a string
+      // Mapped to actual database IDs from Specialization table
+      const specializationMap = {
+        'Anxiety': 1,                    // ID: 1
+        'Depression': 2,                  // ID: 2 (Note: DB has "Deptression" typo)
+        'Relationship Counselling': 3,    // ID: 3
+        // 'Grief Support': 4,            // Not in database
+        // 'Stress Management': 5,        // Not in database (ID 5 is "CBT")
+      };
+      const specializationId = specializationMap[form.specialization];
+
+      if (!specializationId && form.specialization) {
+        setErrors(prev => ({
+          ...prev,
+          specialization: `Specialization "${form.specialization}" not found. Please contact support or check database IDs.`
+        }));
+        return;
+      }
+
+      payload.specializations = specializationId ? [specializationId] : [];
+      if (payload.specializations.length === 0) {
+        setErrors(prev => ({ ...prev, specialization: 'Please select a specialization' }));
+        return;
+      }
+
+      // Backend uses 'fees_per_session' not 'fees'
+      const feesValue = parseFloat(form.fees);
+      if (isNaN(feesValue) || feesValue <= 0) {
+        setErrors(prev => ({ ...prev, fees: 'Please enter a valid fee amount' }));
+        return;
+      }
+      payload.fees_per_session = feesValue;
+
+      // Backend expects availability as a list of integers (IDs)
+      // Mapped to actual database IDs from AvailabilitySlot table
+      const availabilityMap = {
+        'Weekdays': 2,    // ID: 2, Name: weekdays
+        'Weekends': 1,    // ID: 1, Name: weekends
+        'Evenings': 3,    // ID: 3, Name: evenings
+        // 'Morning': 4,   // ID: 4, Name: morning (not in frontend options)
+      };
+      const availabilityId = availabilityMap[form.availability];
+
+      if (!availabilityId && form.availability) {
+        setErrors(prev => ({
+          ...prev,
+          availability: `Availability "${form.availability}" not found. Please contact support or check database IDs.`
+        }));
+        return;
+      }
+
+      payload.availability = availabilityId ? [availabilityId] : [];
+      if (payload.availability.length === 0) {
+        setErrors(prev => ({ ...prev, availability: 'Please select availability' }));
+        return;
+      }
+    }
+
     // Log payload for debugging (remove in production)
-    console.log('Registration payload:', { ...payload, password: '***', password2: '***' });
+    console.log('Registration payload:', JSON.stringify({ ...payload, password: '***', confirm_password: '***' }, null, 2));
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/signup/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/auth/signup/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
+      } catch (fetchError) {
+        // Handle network errors (connection refused, etc.)
+        console.error('Network error:', fetchError);
+        if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('ERR_CONNECTION_REFUSED')) {
+          setErrors(prev => ({ 
+            ...prev, 
+            form: 'Cannot connect to server. Please ensure the backend server is running on http://localhost:8000' 
+          }));
+          return;
+        }
+        throw fetchError;
+      }
+
+      let responseData;
+      try {
+        responseData = await res.json(); // Parse response once
+      } catch (parseError) {
+        // If response is not JSON, it might be an error page
+        const text = await res.text();
+        console.error('Non-JSON response:', text);
+        setErrors(prev => ({ 
+          ...prev, 
+          form: `Server error: ${res.status} ${res.statusText}. Please check the backend server.` 
+        }));
+        return;
+      }
+
       if (!res.ok) {
         let detail = 'Registration failed';
         try {
-          const data = await res.json();
-          console.error('Registration error response:', data);
+          console.error('Registration error response:', JSON.stringify(responseData, null, 2));
+
           // Map backend field errors to our form fields when possible
           const fieldErrors = {};
-          if (data.email) fieldErrors.email = Array.isArray(data.email) ? data.email[0] : String(data.email);
-          if (data.first_name) fieldErrors.firstName = Array.isArray(data.first_name) ? data.first_name[0] : String(data.first_name);
-          if (data.last_name) fieldErrors.lastName = Array.isArray(data.last_name) ? data.last_name[0] : String(data.last_name);
-          if (data.phone) fieldErrors.phone = Array.isArray(data.phone) ? data.phone[0] : String(data.phone);
-          if (data.role) fieldErrors.accountType = Array.isArray(data.role) ? data.role[0] : String(data.role);
-          if (data.password) fieldErrors.password = Array.isArray(data.password) ? data.password[0] : String(data.password);
-          if (data.password2) fieldErrors.confirm = Array.isArray(data.password2) ? data.password2[0] : String(data.password2);
-          if (Object.keys(fieldErrors).length) setErrors(prev => ({ ...prev, ...fieldErrors }));
-          if (data.detail) detail = String(data.detail);
-          // If there's no detail but there are field errors, construct a message
-          if (!data.detail && Object.keys(fieldErrors).length > 0) {
-            detail = 'Please correct the errors below';
+
+          // Handle non-field errors first
+          if (responseData.detail) {
+            detail = String(responseData.detail);
+          }
+
+          // Map all field errors
+          Object.keys(responseData).forEach(key => {
+            if (key === 'detail') return; // Skip detail, already handled
+
+            const errorValue = responseData[key];
+            let errorMessage = '';
+
+            if (Array.isArray(errorValue)) {
+              errorMessage = errorValue[0];
+            } else if (typeof errorValue === 'object' && errorValue !== null) {
+              // Handle nested error objects
+              errorMessage = JSON.stringify(errorValue);
+            } else {
+              errorMessage = String(errorValue);
+            }
+
+            // Map backend field names to frontend field names
+            const fieldMap = {
+              'email': 'email',
+              'first_name': 'firstName',
+              'last_name': 'lastName',
+              'phone': 'phone',
+              'role': 'accountType',
+              'account_type': 'accountType', // Backend uses account_type
+              'password': 'password',
+              // 'password2': 'confirm',
+              'confirm_password': 'confirm', // Backend uses confirm_password
+              'agreed_terms': 'agree', // Backend uses agreed_terms
+              'license_number': 'licenseNumber',
+              'specialization': 'specialization',
+              'specializations': 'specialization', // Backend uses specializations (plural, array)
+              'fees': 'fees',
+              'fees_per_session': 'fees', // Backend uses fees_per_session
+              'availability': 'availability',
+            };
+
+            const frontendField = fieldMap[key] || key;
+            fieldErrors[frontendField] = errorMessage;
+          });
+
+          // Set all errors at once
+          if (Object.keys(fieldErrors).length > 0) {
+            setErrors(prev => ({ ...prev, ...fieldErrors }));
+            // Update touched state for all fields with errors
+            const touchedFields = {};
+            Object.keys(fieldErrors).forEach(field => {
+              touchedFields[field] = true;
+              // Map 'agree' back to 'agree' for the checkbox
+              if (field === 'agree') {
+                touchedFields.agree = true;
+              }
+            });
+            setTouched(prev => ({ ...prev, ...touchedFields }));
+
+            if (!detail || detail === 'Registration failed') {
+              detail = 'Please correct the errors below';
+            }
           }
         } catch (parseError) {
           console.error('Error parsing response:', parseError);
-          const msg = await res.text();
-          if (msg) detail = msg;
+          // Response already parsed above, so this shouldn't happen
+          detail = 'Registration failed. Please try again.';
         }
         throw new Error(detail);
       }
-      // Auto-login after successful registration
-      const user = await login(form.email, form.password);
-      const role = user?.role || payload.role || 'client';
-      navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
+
+      // Registration successful - show success modal
+      setRegisteredEmail(form.email);
+      setShowSuccessModal(true);
+      
+      // Reset form
+      setForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        confirm: '',
+        accountType: 'Client',
+        ageGroup: '',
+        phone: '',
+        licenseNumber: '',
+        specialization: '',
+        fees: '',
+        availability: ''
+      });
+      setAgree(false);
+      setErrors({});
+      setTouched({});
     } catch (err) {
       setErrors(prev => ({ ...prev, form: err.message || 'Registration failed. Please check your details.' }));
     }
@@ -142,7 +329,7 @@ function Register() {
   return (
     <div className="py-10">
       <div className="max-w-3xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-8">
-        <h2 className="text-2xl font-bold text-center">Register for SkillBridge</h2>
+        <h2 className="text-2xl font-bold text-center">Register for Mindease</h2>
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           {/* First & Last Name */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -213,18 +400,25 @@ function Register() {
             </div>
           </div>
 
-          {/* Account Type + Age Group */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm mb-1">Account Type</label>
-              <select className="w-full p-2.5 border rounded-md" name="accountType" value={form.accountType} onChange={handleChange}>
-                <option>Client</option>
-                <option>Counsellor</option>
-              </select>
-            </div>
+          {/* Account Type */}
+          <div>
+            <label className="block text-sm mb-1">Account Type</label>
+            <select className="w-full p-2.5 border rounded-md" name="accountType" value={form.accountType} onChange={handleChange}>
+              <option>Client</option>
+              <option>Counsellor</option>
+            </select>
+          </div>
+
+          {/* Age Group - Only show for Client */}
+          {form.accountType === 'Client' && (
             <div>
               <label className="block text-sm mb-1">Age Group</label>
-              <select className="w-full p-2.5 border rounded-md" name="ageGroup" value={form.ageGroup} onChange={handleChange}>
+              <select 
+                className="w-full p-2.5 border rounded-md" 
+                name="ageGroup" 
+                value={form.ageGroup} 
+                onChange={handleChange}
+              >
                 <option value="">Select age group</option>
                 <option>Under 18</option>
                 <option>18-25</option>
@@ -232,30 +426,78 @@ function Register() {
                 <option>41-60</option>
                 <option>60+</option>
               </select>
+              {touched.ageGroup && errors.ageGroup && (
+                <p className="mt-1 text-xs text-red-600">{errors.ageGroup}</p>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Counsellor fields */}
           {form.accountType === 'Counsellor' && (
             <>
               <h3 className="font-semibold">Professional Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input className="w-full p-2.5 border rounded-md" name="licenseNumber" placeholder="License Number" value={form.licenseNumber} onChange={handleChange} />
-                <select className="w-full p-2.5 border rounded-md" name="specialization" value={form.specialization} onChange={handleChange}>
-                  <option value="">Select specialization</option>
-                  <option>Anxiety</option>
-                  <option>Depression</option>
-                  <option>Relationship Counselling</option>
-                  <option>Grief Support</option>
-                  <option>Stress Management</option>
-                </select>
-                <input className="w-full p-2.5 border rounded-md" name="fees" placeholder="Fees (per hour)" value={form.fees} onChange={handleChange} />
-                <select className="w-full p-2.5 border rounded-md" name="availability" value={form.availability} onChange={handleChange}>
-                  <option value="">Select availability</option>
-                  <option>Weekdays</option>
-                  <option>Weekends</option>
-                  <option>Evenings</option>
-                </select>
+                <div>
+                  <input
+                    className={`w-full p-2.5 border rounded-md ${touched.licenseNumber && errors.licenseNumber ? 'border-red-500' : ''}`}
+                    name="licenseNumber"
+                    placeholder="License Number"
+                    value={form.licenseNumber}
+                    onChange={handleChange}
+                    onBlur={() => setTouched(prev => ({ ...prev, licenseNumber: true }))}
+                  />
+                  {touched.licenseNumber && errors.licenseNumber && (
+                    <p className="mt-1 text-xs text-red-600">{errors.licenseNumber}</p>
+                  )}
+                </div>
+                <div>
+                  <select
+                    className={`w-full p-2.5 border rounded-md ${touched.specialization && errors.specialization ? 'border-red-500' : ''}`}
+                    name="specialization"
+                    value={form.specialization}
+                    onChange={handleChange}
+                    onBlur={() => setTouched(prev => ({ ...prev, specialization: true }))}
+                  >
+                    <option value="">Select specialization</option>
+                    <option>Anxiety</option>
+                    <option>Depression</option>
+                    <option>Relationship Counselling</option>
+                    {/* Note: Grief Support and Stress Management not available in database */}
+                  </select>
+                  {touched.specialization && errors.specialization && (
+                    <p className="mt-1 text-xs text-red-600">{errors.specialization}</p>
+                  )}
+                </div>
+                <div>
+                  <input
+                    className={`w-full p-2.5 border rounded-md ${touched.fees && errors.fees ? 'border-red-500' : ''}`}
+                    name="fees"
+                    placeholder="Fees (per hour)"
+                    value={form.fees}
+                    onChange={handleChange}
+                    onBlur={() => setTouched(prev => ({ ...prev, fees: true }))}
+                  />
+                  {touched.fees && errors.fees && (
+                    <p className="mt-1 text-xs text-red-600">{errors.fees}</p>
+                  )}
+                </div>
+                <div>
+                  <select
+                    className={`w-full p-2.5 border rounded-md ${touched.availability && errors.availability ? 'border-red-500' : ''}`}
+                    name="availability"
+                    value={form.availability}
+                    onChange={handleChange}
+                    onBlur={() => setTouched(prev => ({ ...prev, availability: true }))}
+                  >
+                    <option value="">Select availability</option>
+                    <option>Weekdays</option>
+                    <option>Weekends</option>
+                    <option>Evenings</option>
+                  </select>
+                  {touched.availability && errors.availability && (
+                    <p className="mt-1 text-xs text-red-600">{errors.availability}</p>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -276,6 +518,47 @@ function Register() {
           )}
         </form>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <svg
+                  className="h-8 w-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
+              <p className="text-gray-600 mb-4">
+                Please check your email at <span className="font-semibold">{registeredEmail}</span> to verify your account.
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                We've sent a verification link to your email. Click the link to activate your account.
+              </p>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  navigate('/login');
+                }}
+                className="w-full bg-blue-600 text-white py-2.5 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

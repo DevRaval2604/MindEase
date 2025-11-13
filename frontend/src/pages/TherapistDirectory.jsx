@@ -25,9 +25,15 @@ function TherapistCard({ t, onBook }) {
         </div>
       </div>
       <div className="text-center font-semibold text-gray-900">{t.name}</div>
-      <div className="text-center text-xs text-gray-600 mt-1">{t.email}</div>
-      {t.phone && (
-        <div className="text-center text-xs text-gray-500 mt-1">📞 {t.phone}</div>
+      {t.specializations && t.specializations.length > 0 && (
+        <div className="text-center text-xs text-gray-600 mt-1">
+          {t.specializations.map(s => s.name || s).join(', ')}
+        </div>
+      )}
+      {t.fees && (
+        <div className="text-center text-sm text-gray-700 mt-2 font-medium">
+          ₹{parseFloat(t.fees).toLocaleString('en-IN')} per session
+        </div>
       )}
       <button onClick={onBook} className="mt-4 bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700">Book Now</button>
     </div>
@@ -42,38 +48,47 @@ function TherapistDirectory() {
   const [therapists, setTherapists] = useState([]);
   const [loadingTherapists, setLoadingTherapists] = useState(true);
 
-  // Fetch therapists from database
+  // Fetch counsellors from backend API (public endpoint, no auth required)
   useEffect(() => {
     const fetchTherapists = async () => {
-      if (!isAuthenticated) {
-        setLoadingTherapists(false);
-        return;
-      }
-
+      setLoadingTherapists(true);
       try {
-        const res = await fetch(`${API_BASE}/api/auth/therapists/`, {
+        // Use search API with query params for filtering
+        const params = new URLSearchParams();
+        if (query.trim()) {
+          params.append('q', query.trim());
+        }
+
+        const res = await fetch(`${API_BASE}/api/search/counsellors/?${params.toString()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
         });
-        
+
         if (res.ok) {
           const data = await res.json();
-          // Transform database format to match component expectations
-          const transformed = Array.isArray(data) ? data.map(t => ({
+          // Backend returns paginated response: { results: [...], count, next, previous }
+          const counsellors = data.results || data || [];
+
+          // Transform backend format to match component expectations
+          const transformed = Array.isArray(counsellors) ? counsellors.map(t => ({
             id: t.id,
-            name: t.full_name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Therapist',
-            email: t.email,
-            phone: t.phone,
+            name: t.full_name || 'Counsellor',
+            email: t.user?.email || '',
+            phone: t.user?.phone || '',
             image: t.profile_picture || '',
+            specializations: t.specializations || [],
+            fees: t.fees_per_session || 0,
+            experience: t.experience || '',
+            availability: t.availability || [],
           })) : [];
           setTherapists(transformed);
         } else {
-          console.error('Failed to fetch therapists');
+          console.error('Failed to fetch counsellors');
           setTherapists([]);
         }
       } catch (error) {
-        console.error('Error fetching therapists:', error);
+        console.error('Error fetching counsellors:', error);
         setTherapists([]);
       } finally {
         setLoadingTherapists(false);
@@ -81,14 +96,10 @@ function TherapistDirectory() {
     };
 
     fetchTherapists();
-  }, [isAuthenticated]);
+  }, [query]); // Re-fetch when query changes
 
-  const filtered = useMemo(() => {
-    return therapists.filter(t => {
-      const q = query.trim().toLowerCase();
-      return !q || t.name.toLowerCase().includes(q) || (t.email && t.email.toLowerCase().includes(q));
-    });
-  }, [therapists, query]);
+  // No need for client-side filtering since API handles it
+  const filtered = therapists;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -96,9 +107,9 @@ function TherapistDirectory() {
         <div className="font-semibold text-gray-900 text-xl">Available Therapists</div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-col sm:flex-row gap-4">
         <input
-          placeholder="Search therapists by name or email..."
+          placeholder="Search counsellors by name or email..."
           className="w-full sm:w-96 p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

@@ -1,0 +1,12 @@
+Hi {{ full_name }},
+
+Thanks for creating an account on MindEase. Verify your email:
+
+{{ verify_url }}
+
+{{ expiry_info }}
+
+If you didn't create an account, ignore this email or contact us at {{ support_email }}.
+
+Thanks,
+The MindEase Team

@@ -30,7 +30,7 @@ function ClientProfile() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me/`, {
+        const res = await fetch(`${API_BASE}/api/auth/profile/`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -41,7 +41,7 @@ function ClientProfile() {
           console.log('ClientProfile: Loaded data from database:', data);
 
           // Get database fields - ensure all fields are properly extracted
-          const dbFullName = data.full_name || `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim();
+          const dbFullName = `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim();
           const dbEmail = data.email || '';
           const dbPhone = data.phone || '';
           const dbAvatar = data.profile_picture || '';
@@ -60,10 +60,10 @@ function ClientProfile() {
             email: dbEmail,
             phone: dbPhone,
             avatar: dbAvatar,
-            // Additional fields from localStorage
-            gender: saved.gender || '',
-            dob: saved.dob || '',
-            about: saved.about || '',
+            // Additional fields from database or localStorage
+            gender: data.gender || saved.gender || '',
+            dob: data.date_of_birth || saved.dob || '',
+            about: data.bio || saved.about || '',
           });
 
           console.log('ClientProfile: Profile set with database data:', {
@@ -111,15 +111,19 @@ function ClientProfile() {
 
     try {
       // Update basic profile fields in database
+      const nameParts = profile.fullName.trim().split(' ');
       const updateData = {
-        first_name: profile.fullName.split(' ')[0] || '',
-        last_name: profile.fullName.split(' ').slice(1).join(' ') || '',
+        first_name: nameParts[0] || '',
+        last_name: nameParts.slice(1).join(' ') || '',
         phone: profile.phone || '',
         profile_picture: profile.avatar || '',
+        bio: profile.about || '',
+        gender: profile.gender || null,
+        date_of_birth: profile.dob || null,
       };
 
-      const res = await fetch(`${API_BASE}/api/auth/me/`, {
-        method: 'PUT',
+      const res = await fetch(`${API_BASE}/api/auth/profile/`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(updateData),
@@ -129,14 +133,18 @@ function ClientProfile() {
         const updatedData = await res.json();
         console.log('Profile updated in database:', updatedData);
 
-        // Save additional fields (gender, dob, about) to localStorage
-        // These can be moved to database later if needed
-        const additionalData = {
-          gender: profile.gender,
-          dob: profile.dob,
-          about: profile.about,
-        };
-        localStorage.setItem('clientProfile', JSON.stringify(additionalData));
+        // Profile is now saved in database, no need for localStorage
+        // Update local state with returned data
+        const nameParts = [updatedData.first_name || '', updatedData.last_name || ''].filter(Boolean);
+        setProfile(prev => ({
+          ...prev,
+          fullName: nameParts.join(' ') || prev.fullName,
+          phone: updatedData.phone || prev.phone,
+          avatar: updatedData.profile_picture || prev.avatar,
+          gender: updatedData.gender || prev.gender,
+          dob: updatedData.date_of_birth || prev.dob,
+          about: updatedData.bio || prev.about,
+        }));
 
         alert('Profile saved successfully');
       } else {

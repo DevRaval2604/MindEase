@@ -31,7 +31,7 @@ function CounsellorProfile() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me/`, {
+        const res = await fetch(`${API_BASE}/api/auth/profile/`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -42,31 +42,48 @@ function CounsellorProfile() {
           console.log('CounsellorProfile: Loaded data from database:', data);
 
           // Get database fields - ensure all fields are properly extracted
-          const dbFullName = data.full_name || `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim();
+          const dbFullName = `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim();
           const dbEmail = data.email || '';
           const dbPhone = data.phone || '';
           const dbAvatar = data.profile_picture || '';
+          const dbLicenseNumber = data.license_number || '';
+          const dbFees = data.fees_per_session || '';
+          const dbBio = data.bio || '';
+          const dbExperience = data.experience || '';
 
-          // Load additional fields from localStorage if they exist
-          let saved = {};
-          try {
-            saved = JSON.parse(localStorage.getItem('counsellorProfile') || '{}');
-          } catch (e) {
-            console.error('Error loading localStorage data:', e);
+          // Handle specializations - backend returns array of objects with id and name
+          let specializationName = '';
+          if (data.specializations && data.specializations.length > 0) {
+            // If it's an array of objects, get the first one's name
+            if (typeof data.specializations[0] === 'object' && data.specializations[0].name) {
+              specializationName = data.specializations[0].name;
+            } else if (typeof data.specializations[0] === 'string') {
+              specializationName = data.specializations[0];
+            }
           }
 
-          // Set profile with database data (priority) and localStorage data (additional fields)
+          // Handle availability - backend returns array of objects with id and name
+          let availabilityName = '';
+          if (data.availability && data.availability.length > 0) {
+            // If it's an array of objects, get the first one's name
+            if (typeof data.availability[0] === 'object' && data.availability[0].name) {
+              availabilityName = data.availability[0].name;
+            } else if (typeof data.availability[0] === 'string') {
+              availabilityName = data.availability[0];
+            }
+          }
+
+          // Set profile with database data
           setProfile({
             fullName: dbFullName,
             email: dbEmail,
             phone: dbPhone,
             avatar: dbAvatar,
-            // Additional fields from localStorage
-            licenseNumber: saved.licenseNumber || '',
-            specialization: saved.specialization || '',
-            fees: saved.fees || '',
-            availability: saved.availability || '',
-            bio: saved.bio || '',
+            licenseNumber: dbLicenseNumber,
+            specialization: specializationName,
+            fees: dbFees ? String(dbFees) : '',
+            availability: availabilityName,
+            bio: dbBio || dbExperience,
           });
 
           console.log('CounsellorProfile: Profile set with database data:', {
@@ -113,16 +130,47 @@ function CounsellorProfile() {
     }
 
     try {
-      // Update basic profile fields in database
+      // Prepare update data according to backend serializer
+      const nameParts = profile.fullName.trim().split(' ');
       const updateData = {
-        first_name: profile.fullName.split(' ')[0] || '',
-        last_name: profile.fullName.split(' ').slice(1).join(' ') || '',
+        first_name: nameParts[0] || '',
+        last_name: nameParts.slice(1).join(' ') || '',
         phone: profile.phone || '',
         profile_picture: profile.avatar || '',
+        bio: profile.bio || '',
+        license_number: profile.licenseNumber || '',
+        fees_per_session: profile.fees ? parseFloat(profile.fees) : null,
+        experience: profile.bio || '', // Using bio as experience for now
       };
 
-      const res = await fetch(`${API_BASE}/api/auth/me/`, {
-        method: 'PUT',
+      // Map specialization name to ID (matching Register.jsx mapping)
+      const specializationMap = {
+        'Anxiety': 1,
+        'Depression': 2,
+        'Relationship Counselling': 3,
+      };
+      if (profile.specialization && specializationMap[profile.specialization]) {
+        updateData.specializations = [specializationMap[profile.specialization]];
+      }
+
+      // Map availability name to ID (matching Register.jsx mapping)
+      const availabilityMap = {
+        'Weekdays': 2,
+        'Weekends': 1,
+        'Evenings': 3,
+      };
+      // Handle availability string formats
+      let availabilityKey = profile.availability;
+      if (availabilityKey) {
+        // Remove parentheses content if present (e.g., "Weekdays (9 AM - 5 PM)" -> "Weekdays")
+        availabilityKey = availabilityKey.split('(')[0].trim();
+        if (availabilityMap[availabilityKey]) {
+          updateData.availability = [availabilityMap[availabilityKey]];
+        }
+      }
+
+      const res = await fetch(`${API_BASE}/api/auth/profile/`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify(updateData),
@@ -132,16 +180,32 @@ function CounsellorProfile() {
         const updatedData = await res.json();
         console.log('Profile updated in database:', updatedData);
 
-        // Save additional fields (licenseNumber, specialization, fees, availability, bio) to localStorage
-        // These can be moved to database later if needed
-        const additionalData = {
-          licenseNumber: profile.licenseNumber,
-          specialization: profile.specialization,
-          fees: profile.fees,
-          availability: profile.availability,
-          bio: profile.bio,
-        };
-        localStorage.setItem('counsellorProfile', JSON.stringify(additionalData));
+        // Update local state with returned data
+        const nameParts = [updatedData.first_name || '', updatedData.last_name || ''].filter(Boolean);
+        let specializationName = '';
+        if (updatedData.specializations && updatedData.specializations.length > 0) {
+          if (typeof updatedData.specializations[0] === 'object' && updatedData.specializations[0].name) {
+            specializationName = updatedData.specializations[0].name;
+          }
+        }
+        let availabilityName = '';
+        if (updatedData.availability && updatedData.availability.length > 0) {
+          if (typeof updatedData.availability[0] === 'object' && updatedData.availability[0].name) {
+            availabilityName = updatedData.availability[0].name;
+          }
+        }
+
+        setProfile(prev => ({
+          ...prev,
+          fullName: nameParts.join(' ') || prev.fullName,
+          phone: updatedData.phone || prev.phone,
+          avatar: updatedData.profile_picture || prev.avatar,
+          licenseNumber: updatedData.license_number || prev.licenseNumber,
+          specialization: specializationName || prev.specialization,
+          fees: updatedData.fees_per_session ? String(updatedData.fees_per_session) : prev.fees,
+          availability: availabilityName || prev.availability,
+          bio: updatedData.bio || updatedData.experience || prev.bio,
+        }));
 
         alert('Profile saved successfully');
       } else {
