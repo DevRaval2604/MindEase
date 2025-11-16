@@ -1,4 +1,3 @@
-
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.response import Response
@@ -67,7 +66,30 @@ class SignupView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = ClientSignupSerializer(data=request.data)
+        # Handle both JSON and multipart/form-data (for file uploads)
+        data = request.data.copy()
+        
+        # If request has files, it's multipart/form-data
+        # Parse list fields from FormData (they come as strings or multiple values)
+        if request.FILES:
+            # Handle specializations and availability lists
+            # They might come as JSON strings or multiple values
+            for field in ['specializations', 'availability']:
+                if field in data:
+                    value = data[field]
+                    if isinstance(value, str):
+                        try:
+                            # Try to parse as JSON array
+                            import json
+                            data[field] = json.loads(value)
+                        except (json.JSONDecodeError, TypeError):
+                            # If not JSON, treat as single value in list
+                            data[field] = [value] if value else []
+                    elif not isinstance(value, list):
+                        # Convert single value to list
+                        data[field] = [value] if value else []
+        
+        serializer = ClientSignupSerializer(data=data)
         serializer.is_valid(raise_exception=True)
 
         try:

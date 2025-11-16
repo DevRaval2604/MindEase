@@ -61,9 +61,18 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || 'Login failed');
+      let errorData = {};
+    
+      try {
+        errorData = await res.json();   // backend JSON
+      } catch {
+        errorData = { detail: "Something went wrong" };
+      }
+    
+      // Throw real error object for frontend
+      throw { response: { data: errorData } };
     }
+    
     const data = await res.json();
     setIsAuthenticated(true);
     setUser(data);

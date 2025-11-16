@@ -5,6 +5,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.utils import timezone
 from django import forms
+from django.utils.html import format_html
 
 from .models import (
     ClientProfile,
@@ -60,14 +61,30 @@ class CounsellorProfileInline(admin.StackedInline):
     extra = 0
     filter_horizontal = ("specializations", "availability")
     readonly_fields = ("created_at", "updated_at")
+    def license_document_link(self, obj):
+        if obj.license_document:
+            return format_html("<a href='{}' target='_blank'>View Document</a>", obj.license_document.url)
+        return "No document uploaded"
+
+    license_document_link.short_description = "License Document"
+    readonly_fields = (
+        "license_document_link",
+        "created_at",
+        "updated_at",
+    )
 
     fields = (
+        "license_document",
+        # Show the link
+        "license_document_link",
+        # Also allow editing/uploading file
         "license_number",
         "specializations",
         "fees_per_session",
         "availability",
         "experience",               
         "is_verified_professional",
+        "is_approved",  
         "created_at",
         "updated_at",
     )

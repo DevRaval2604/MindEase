@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useEffect } from "react";
+import { fetchSpecializations, fetchAvailability } from "../api/common";
+
 
 function Register() {
   const navigate = useNavigate();
@@ -18,13 +21,36 @@ function Register() {
     licenseNumber: '',
     specialization: '',
     fees: '',
-    availability: ''
+    availability: '',
+    licenseFile: null,
   });
   const [agree, setAgree] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [specializations, setSpecializations] = useState([]);
+  const [availabilityOptions, setAvailabilityOptions] = useState([]);
+
+  // ✅ MOVE useEffect HERE
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [specs, avail] = await Promise.all([
+          fetchSpecializations(),
+          fetchAvailability(),
+        ]);
+
+        setSpecializations(specs);
+        setAvailabilityOptions(avail);
+
+      } catch (err) {
+        console.error("Error loading dropdown data:", err);
+      }
+    }
+
+    loadData();
+  }, []);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -72,7 +98,7 @@ function Register() {
       lastName: true,
       email: true,
       password: true,
-      confirm: true,
+      confirm_password: true,
       phone: true,
       licenseNumber: true,
       specialization: true,
@@ -82,26 +108,61 @@ function Register() {
     });
     if (Object.keys(nextErrors).length > 0) return;
 
-    // Prepare payload for backend
-    const payload = {
-      first_name: form.firstName.trim(),
-      last_name: form.lastName.trim(),
-      email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim(), // Ensure phone is trimmed and is a string of exactly 10 digits
-      role: form.accountType.toLowerCase(), // 'client' | 'counsellor'
-      password: form.password,
-      password2: form.confirm,
-    };
-
-    // Log payload for debugging (remove in production)
-    console.log('Registration payload:', { ...payload, password: '***', password2: '***' });
-
     try {
+      let requestBody;
+      let headers = { 'Content-Type': 'application/json' };
+      
+      // If counsellor and has license file, use FormData
+      if (form.accountType === 'Counsellor' && form.licenseFile) {
+        const formData = new FormData();
+        formData.append('first_name', form.firstName.trim());
+        formData.append('last_name', form.lastName.trim());
+        formData.append('email', form.email.trim().toLowerCase());
+        formData.append('phone', form.phone.trim());
+        formData.append('account_type', form.accountType.toLowerCase());
+        formData.append('password', form.password);
+        formData.append('confirm_password', form.confirm);
+        formData.append('age_group', form.ageGroup || '');
+        formData.append('agreed_terms', 'true');
+        formData.append('license_number', form.licenseNumber.trim());
+      
+        // FIXED — no JSON.stringify
+        formData.append('specializations', parseInt(form.specialization));
+        formData.append('fees_per_session', form.fees);
+        formData.append('availability', parseInt(form.availability));
+      
+        formData.append('license_document', form.licenseFile);
+      
+        requestBody = formData;
+        headers = {};
+      }
+       else {
+        // Regular JSON payload
+        const payload = {
+          first_name: form.firstName.trim(),
+          last_name: form.lastName.trim(),
+          email: form.email.trim().toLowerCase(),
+          phone: form.phone.trim(),
+          account_type: form.accountType.toLowerCase(),
+          password: form.password,
+          confirm_password: form.confirm,
+          age_group: form.ageGroup,
+          agreed_terms: true
+        };
+        if (form.accountType === 'Counsellor') {
+          payload.license_number = form.licenseNumber.trim();
+          payload.specializations = [parseInt(form.specialization)];
+          payload.fees_per_session = parseFloat(form.fees);
+          payload.availability = [parseInt(form.availability)];
+        }
+        requestBody = JSON.stringify(payload);
+      }
+
       const res = await fetch(`${API_BASE}/api/auth/signup/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         credentials: 'include',
-        body: JSON.stringify(payload),
+        body: requestBody,
       });
       if (!res.ok) {
         let detail = 'Registration failed';
@@ -130,7 +191,10 @@ function Register() {
         }
         throw new Error(detail);
       }
-      // Auto-login after successful registration
+      // login page after registration
+      const data = await res.json();
+      alert(data.detail || "Account created! Please verify your email.");
+
       const user = await login(form.email, form.password);
       const role = user?.role || payload.role || 'client';
       navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
@@ -226,39 +290,79 @@ function Register() {
               <label className="block text-sm mb-1">Age Group</label>
               <select className="w-full p-2.5 border rounded-md" name="ageGroup" value={form.ageGroup} onChange={handleChange}>
                 <option value="">Select age group</option>
-                <option>Under 18</option>
-                <option>18-25</option>
-                <option>26-40</option>
-                <option>41-60</option>
-                <option>60+</option>
+                <option value="under_18">Under 18</option>
+                <option value="18_25">18–25</option>
+                <option value="26_40">26–40</option>
+                <option value="41_60">41–60</option>
+                <option value="60_plus">60+</option>
+
               </select>
             </div>
           </div>
 
-          {/* Counsellor fields */}
-          {form.accountType === 'Counsellor' && (
-            <>
-              <h3 className="font-semibold">Professional Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input className="w-full p-2.5 border rounded-md" name="licenseNumber" placeholder="License Number" value={form.licenseNumber} onChange={handleChange} />
-                <select className="w-full p-2.5 border rounded-md" name="specialization" value={form.specialization} onChange={handleChange}>
-                  <option value="">Select specialization</option>
-                  <option>Anxiety</option>
-                  <option>Depression</option>
-                  <option>Relationship Counselling</option>
-                  <option>Grief Support</option>
-                  <option>Stress Management</option>
-                </select>
-                <input className="w-full p-2.5 border rounded-md" name="fees" placeholder="Fees (per hour)" value={form.fees} onChange={handleChange} />
-                <select className="w-full p-2.5 border rounded-md" name="availability" value={form.availability} onChange={handleChange}>
-                  <option value="">Select availability</option>
-                  <option>Weekdays</option>
-                  <option>Weekends</option>
-                  <option>Evenings</option>
-                </select>
-              </div>
-            </>
-          )}
+{/* Counsellor fields */}
+{form.accountType === 'Counsellor' && (
+  <>
+    <h3 className="font-semibold">Professional Information</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <input
+        className="w-full p-2.5 border rounded-md"
+        name="licenseNumber"
+        placeholder="License Number"
+        value={form.licenseNumber}
+        onChange={handleChange}
+      />
+
+      {/* 🆕 Upload License File */}
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Upload License (PDF or Image)
+        </label>
+        <input
+          type="file"
+          name="licenseFile"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={(e) => setForm({ ...form, licenseFile: e.target.files[0] })}
+          className="w-full border rounded-md p-2.5 text-sm bg-white"
+        />
+      </div>
+
+      <select
+        className="w-full p-2.5 border rounded-md"
+        name="specialization"
+        value={form.specialization}
+        onChange={handleChange}
+      >
+                {specializations.map(spec => (
+          <option key={spec.id} value={spec.id}>
+            {spec.name}
+          </option>
+        ))}
+      </select>
+
+      <input
+        className="w-full p-2.5 border rounded-md"
+        name="fees"
+        placeholder="Fees (per hour)"
+        value={form.fees}
+        onChange={handleChange}
+      />
+
+      <select
+        className="w-full p-2.5 border rounded-md"
+        name="availability"
+        value={form.availability}
+        onChange={handleChange}
+      >
+              {availabilityOptions.map(item => (
+        <option key={item.id} value={item.id}>
+          {item.name}
+        </option>
+      ))}
+      </select>
+    </div>
+  </>
+)}
 
           {/* Terms */}
           <label className="flex items-center gap-2 text-sm">

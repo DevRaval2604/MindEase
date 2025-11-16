@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from "./pages/VerifyEmail";
 import CounsellorRegistration from './pages/CounsellorRegistration';
 import TherapistDirectory from './pages/TherapistDirectory';
 import ClientDashboard from './pages/ClientDashboard';
@@ -16,14 +17,15 @@ import CounsellorProfile from './pages/CounsellorProfile';
 import ManageSlots from './pages/ManageSlots';
 import MyAppointments from './pages/MyAppointments';
 import EarningsSummary from './pages/EarningsSummary';
-import { useAuth } from './context/AuthContext.jsx';
+import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 
 function ProtectedRoute({ children, requireCounsellor = false }) {
   // Lazy import to avoid circular deps
   // const { useAuth } = require('./context/AuthContext.jsx');
   const { isAuthenticated, userType } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (requireCounsellor && userType !== 'counsellor') return <Navigate to="/counsellor/dashboard" replace />;
+  if (requireCounsellor && userType !== 'counsellor') 
+    return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -39,6 +41,7 @@ function NotFound() {
 
 const App = () => {
   return (
+    <AuthProvider>
     <Router>
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -47,6 +50,8 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            
             <Route path="/register/counsellor" element={<CounsellorRegistration />} />
             <Route path="/therapists" element={<TherapistDirectory />} />
             <Route path="/dashboard" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
@@ -73,6 +78,7 @@ const App = () => {
         <Footer />
       </div>
     </Router>
+    </AuthProvider>
   );
 };
 

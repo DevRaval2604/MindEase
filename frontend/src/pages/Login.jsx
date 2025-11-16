@@ -23,20 +23,34 @@ function Login() {
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+  
     const nextErrors = validate(form);
     setErrors(nextErrors);
     setTouched({ email: true, password: true });
+  
     if (Object.keys(nextErrors).length > 0) return;
-
+  
     try {
       const data = await login(form.email, form.password);
-      const role = data?.role || 'client';
-      navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
+      const role = data?.role || "client";
+      navigate(role === "counsellor" ? "/counsellor/dashboard" : "/dashboard");
+  
     } catch (err) {
-      setErrors({ form: 'Invalid email or password' });
+      console.log("ERROR FULL:", err);                // 👈 log everything
+      console.log("ERROR RESPONSE:", err.response);   // 👈 log response
+      console.log("ERROR REQUEST:", err.request);     // 👈 log request
+
+      const backendMessage =
+        err?.response?.data?.detail ||
+        err?.response?.data?.non_field_errors?.[0] ||
+        err?.response?.data?.message ||
+        "Something went wrong";
+    
+      setErrors({ form: backendMessage });
     }
+    
   };
 
   return (

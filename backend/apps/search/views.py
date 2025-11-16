@@ -6,7 +6,22 @@ from rest_framework.permissions import AllowAny
 from apps.accounts.models import CounsellorProfile
 from .serializers import CounsellorSearchSerializer
 from .pagination import StandardResultsSetPagination
+from rest_framework.decorators import api_view
+from apps.accounts.models import Specialization, AvailabilitySlot
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_specializations(request):
+    qs = Specialization.objects.all().values('id', 'name')
+    return Response(qs)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_availability(request):
+    qs = AvailabilitySlot.objects.all().values('id', 'name')
+    return Response(qs)
 
 class CounsellorSearchView(ListAPIView):
     """

@@ -37,6 +37,7 @@ class ClientSignupSerializer(serializers.Serializer):
 
     # Counsellor-specific fields (required only when account_type == counsellor)
     license_number = serializers.CharField(required=False, allow_blank=True, max_length=30)
+    license_document = serializers.FileField(required=False, allow_null=True)
     specializations = serializers.ListField(child=serializers.IntegerField(), required=False)
     fees_per_session = serializers.DecimalField(max_digits=8, decimal_places=2, required=False)
     availability = serializers.ListField(child=serializers.IntegerField(), required=False)
@@ -134,6 +135,7 @@ class ClientSignupSerializer(serializers.Serializer):
         agreed_terms = validated_data.pop("agreed_terms", False)
 
         license_number = validated_data.pop("license_number", None)
+        license_document = validated_data.pop("license_document", None)
         specializations_ids = validated_data.pop("specializations", []) or []
         fees_per_session = validated_data.pop("fees_per_session", None)
         availability_ids = validated_data.pop("availability", []) or []
@@ -184,6 +186,7 @@ class ClientSignupSerializer(serializers.Serializer):
                 counsellor = CounsellorProfile.objects.create(
                     user=user,
                     license_number=license_number,
+                    license_document=license_document,
                     fees_per_session=fees_per_session,
                     bio="",
                 )
@@ -222,24 +225,41 @@ class LoginSerializer(serializers.Serializer):
         password = attrs.get("password", "")
 
         if not email or not password:
-            raise serializers.ValidationError("Must include 'email' and 'password'.")
+            raise serializers.ValidationError({
+                "detail": "Email and password are required."
+            })
 
-        # Use Django's authenticate. Because your USERNAME_FIELD is email,
-        # authenticate should work with username=email. We pass request for auth backends.
-        request = self.context.get("request")
-        user = authenticate(request=request, username=email, password=password)
+        # Fetch user manually
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({
+                "detail": "Invalid email or password."
+            })
 
-        if user is None:
-            # generic invalid credentials response
-            raise serializers.ValidationError("Invalid email or password.")
+        # Manual password check
+        if not user.check_password(password):
+            raise serializers.ValidationError({
+                "detail": "Invalid email or password."
+            })
 
-        if not user.is_active:
-            # enforce email verification / activation
-            raise serializers.ValidationError("Please verify your email before logging in.")
+        # Email verification check
+        if not user.email_verified:
+            raise serializers.ValidationError({
+                "detail": "Please verify your email before logging in."
+            })
 
-        # attach user for view
+        # Counsellor approval check
+        if user.role == "counsellor":
+            profile = user.counsellor_profile
+            if not profile.is_approved:
+                raise serializers.ValidationError({
+                    "detail": "Your account is pending admin approval."
+                })
+
         attrs["user"] = user
         return attrs
+
 
 
 
@@ -329,6 +349,7 @@ class CounsellorProfileSerializer(serializers.ModelSerializer, UserProfilePartia
             "email", "first_name", "last_name", "phone", "profile_picture", "bio", "gender", "date_of_birth",
             # counsellor fields
             "license_number",
+            "license_document",
             "specializations",
             "fees_per_session",
             "experience",

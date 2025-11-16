@@ -13,6 +13,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
+import os
 
 
 
@@ -300,6 +301,26 @@ class ClientProfile(models.Model):
 
 
 
+def counsellor_license_upload_path(instance, filename):
+    """
+    Generate upload path for counsellor license documents.
+    Format: licenses/{counsellor_name}_{email}/{filename}
+    """
+    # Get the user's full name or email as fallback
+    user = instance.user
+    name_part = user.get_full_name().strip() or user.email.split('@')[0]
+    # Sanitize name for filesystem (remove special chars, replace spaces with underscores)
+    name_part = "".join(c for c in name_part if c.isalnum() or c in (' ', '-', '_')).strip()
+    name_part = name_part.replace(' ', '_')
+    email_part = user.email.split('@')[0]  # Use email prefix
+    folder_name = f"{name_part}_{email_part}"
+    # Get file extension
+    ext = os.path.splitext(filename)[1]
+    # Create a safe filename
+    safe_filename = f"license{ext}"
+    return os.path.join('licenses', folder_name, safe_filename)
+
+
 # Counsellor profile
 class CounsellorProfile(models.Model):
     """Profile for Counsellor users. Holds counsellor-specific fields."""
@@ -310,11 +331,19 @@ class CounsellorProfile(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="counsellor_profile")
     license_number = models.CharField(max_length=30, validators=[LICENSE_REGEX], unique=True)
+    license_document = models.FileField(
+        "license document",
+        upload_to=counsellor_license_upload_path,
+        blank=True,
+        null=True,
+        help_text="Upload your professional license document (PDF or Image)"
+    )
     specializations = models.ManyToManyField(Specialization, related_name="counsellors")
     fees_per_session = models.DecimalField(
         max_digits=8, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))]
     )
     availability = models.ManyToManyField(AvailabilitySlot, blank=True, related_name="counsellors")
+    bio = models.TextField("bio", blank=True, null=True)
 
     experience = models.TextField(
         "experience",
@@ -324,6 +353,7 @@ class CounsellorProfile(models.Model):
     )
 
     is_verified_professional = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False)  # 🔥 NEW FIELD
 
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
