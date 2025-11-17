@@ -110,3 +110,14 @@ class CounsellorSearchAPITests(APITestCase):
         res = self.client.get(self.url, {"ordering": "name_desc"})
         results = res.data["results"]
         self.assertEqual(results[0]["full_name"], "Bob Johnson")
+
+    def test_no_results(self):
+        res = self.client.get(self.url, {"q": "zzzz"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 0)
+
+    def test_pagination(self):
+        """Default 10 per page, only 2 created."""
+        res = self.client.get(self.url, {"page": 1})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data["results"]), 2)
