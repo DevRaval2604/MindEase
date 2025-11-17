@@ -77,3 +77,21 @@ class CounsellorSearchAPITests(APITestCase):
         res = self.client.get(self.url, {"specialization": "Anxiety,Depression"})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["count"], 2)
+
+    def test_min_fee_filter(self):
+        res = self.client.get(self.url, {"min_fee": 800})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 1)
+        self.assertEqual(res.data["results"][0]["full_name"], "Bob Johnson")
+
+    def test_max_fee_filter(self):
+        res = self.client.get(self.url, {"max_fee": 600})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 1)
+        self.assertEqual(res.data["results"][0]["full_name"], "Alice Smith")
+
+    def test_invalid_fee_filter(self):
+        """Invalid fee should return zero results, not crash."""
+        res = self.client.get(self.url, {"min_fee": "invalid"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 0)
