@@ -66,4 +66,14 @@ class CounsellorSearchAPITests(APITestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["count"], 1)
 
-        
+    def test_specialization_filter(self):
+        """Filter counsellors by specialization name."""
+        res = self.client.get(self.url, {"specialization": "Anxiety"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 1)
+        self.assertEqual(res.data["results"][0]["full_name"], "Alice Smith")
+
+    def test_multiple_specializations(self):
+        res = self.client.get(self.url, {"specialization": "Anxiety,Depression"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 2)
