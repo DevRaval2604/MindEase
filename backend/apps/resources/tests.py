@@ -122,3 +122,9 @@ class ResourceAPITests(APITestCase):
         response = self.client.get(self.url, {"q": "ANXIETY"})
         self.assertEqual(len(response.data["results"]), 1)
         self.assertIn("Anxiety", response.data["results"][0]["title"])
+
+    def test_pagination(self):
+        # default page_size=9 → all 3 should come in one page
+        response = self.client.get(self.url + "?page=1")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 3)
