@@ -13,10 +13,7 @@ from .models import (
     AvailabilitySlot,
 )
 
-
-
 #  1. UNIT TESTS
-
 
 class UserModelUnitTests(TestCase):
     def test_create_user_defaults(self):
@@ -67,7 +64,6 @@ class ProfileModelUnitTests(TestCase):
 
 #  2. VALIDATION TESTS
 
-
 class SignupValidationTests(APITestCase):
     def test_password_mismatch(self):
         url = reverse('auth-signup')
@@ -113,7 +109,6 @@ class SignupValidationTests(APITestCase):
         self.assertIn("phone", response.data)
 
 #  3. INTEGRATION TESTS (END-TO-END)
-
 
 class AuthIntegrationFlowTests(APITestCase):
     def setUp(self):
