@@ -20,3 +20,39 @@ class ResourceModelTests(APITestCase):
         self.assertEqual(str(resource), "Stress Management Article (article)")
         self.assertIsNotNone(resource.created_at)
         self.assertEqual(resource.resource_type, "article")
+
+
+class ResourceSerializerTests(APITestCase):
+    """Unit tests for the Resource serializer."""
+
+    def test_valid_serializer(self):
+        data = {
+            "title": "Anxiety Video",
+            "description": "Helpful video for anxiety.",
+            "resource_type": "video",
+            "url": "https://example.com/video",
+        }
+        serializer = ResourceSerializer(data=data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["resource_type"], "video")
+
+    def test_invalid_missing_title(self):
+        data = {
+            "description": "Missing title",
+            "resource_type": "article",
+            "url": "https://example.com/article",
+        }
+        serializer = ResourceSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("title", serializer.errors)
+
+    def test_invalid_type(self):
+        data = {
+            "title": "Invalid Type",
+            "description": "",
+            "resource_type": "unknown",
+            "url": "https://example.com/x",
+        }
+        serializer = ResourceSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("resource_type", serializer.errors)
