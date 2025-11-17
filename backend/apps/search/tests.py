@@ -95,3 +95,18 @@ class CounsellorSearchAPITests(APITestCase):
         res = self.client.get(self.url, {"min_fee": "invalid"})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["count"], 0)
+
+    def test_order_by_fees_asc(self):
+        res = self.client.get(self.url, {"ordering": "fees_asc"})
+        results = res.data["results"]
+        self.assertEqual(results[0]["fees_per_session"], "500.00")
+
+    def test_order_by_fees_desc(self):
+        res = self.client.get(self.url, {"ordering": "fees_desc"})
+        results = res.data["results"]
+        self.assertEqual(results[0]["fees_per_session"], "900.00")
+
+    def test_order_by_name_desc(self):
+        res = self.client.get(self.url, {"ordering": "name_desc"})
+        results = res.data["results"]
+        self.assertEqual(results[0]["full_name"], "Bob Johnson")
