@@ -611,6 +611,15 @@ class ProfilePictureUploadView(APIView):
                 filename = f'profile_pictures/user_{request.user.id}_{upload.name}'
                 saved_path = default_storage.save(filename, upload)
                 url = default_storage.url(saved_path)
+                # If storage returns a relative path, make it absolute using request context
+                if isinstance(url, str) and url.startswith('/'):
+                    try:
+                        url = request.build_absolute_uri(url)
+                    except Exception:
+                        # fallback: prefix with SITE_URL setting if available
+                        site = getattr(settings, 'SITE_URL', '')
+                        if site:
+                            url = site.rstrip('/') + url
                 # Persist to user.profile_picture
                 request.user.profile_picture = url
                 request.user.save(update_fields=['profile_picture'])
@@ -650,6 +659,13 @@ class ProfilePictureUploadView(APIView):
         try:
             saved_path = default_storage.save(filename, ContentFile(file_data))
             url = default_storage.url(saved_path)
+            if isinstance(url, str) and url.startswith('/'):
+                try:
+                    url = request.build_absolute_uri(url)
+                except Exception:
+                    site = getattr(settings, 'SITE_URL', '')
+                    if site:
+                        url = site.rstrip('/') + url
             request.user.profile_picture = url
             request.user.save(update_fields=['profile_picture'])
             return Response({'profile_picture': url}, status=200)
