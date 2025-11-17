@@ -64,3 +64,50 @@ class ProfileModelUnitTests(TestCase):
         profile = CounsellorProfile(user=user, license_number="LIC123", fees_per_session=100)
         with self.assertRaises(Exception):
             profile.clean()
+
+#  2. VALIDATION TESTS
+
+
+class SignupValidationTests(APITestCase):
+    def test_password_mismatch(self):
+        url = reverse('auth-signup')
+        data = {
+            "email": "test@example.com",
+            "password": "Pass1234",
+            "confirm_password": "Pass5678",
+            "account_type": "client",
+            "agreed_terms": True
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("confirm_password", response.data)
+
+    def test_duplicate_email(self):
+        url = reverse('auth-signup')
+        data = {
+            "email": "dup@example.com",
+            "password": "StrongPass123!",
+            "confirm_password": "StrongPass123!",
+            "account_type": "client",
+            "agreed_terms": True
+        }
+        # First signup
+        self.client.post(url, data, format='json')
+        # Second should fail
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data)
+
+    def test_invalid_phone(self):
+        url = reverse('auth-signup')
+        data = {
+            "email": "phone@example.com",
+            "password": "Pass1234",
+            "confirm_password": "Pass1234",
+            "phone": "123",
+            "account_type": "client",
+            "agreed_terms": True
+        }
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("phone", response.data)
