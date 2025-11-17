@@ -171,3 +171,45 @@ class AppointmentAPITests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         appt.refresh_from_db()
         self.assertEqual(appt.payment_status, Appointment.PaymentStatus.FAILED)
+
+    def test_list_and_detail_permissions(self):
+        # create appointment for client
+        appt = Appointment.objects.create(
+            client=self.client_user,
+            counsellor=self.counsellor_user,
+            appointment_date=timezone.now() + timedelta(days=7),
+            amount=Decimal("700.00"),
+        )
+        # list
+        res = self.client.get(self.list_url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertTrue(any(a['id'] == appt.id for a in res.data))
+
+        # detail
+        detail_url = reverse('appointments:detail', kwargs={"appointment_id": appt.id})
+        res2 = self.client.get(detail_url)
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertEqual(res2.data['id'], appt.id)
+
+    def test_reschedule_flow(self):
+        appt = Appointment.objects.create(
+            client=self.client_user,
+            counsellor=self.counsellor_user,
+            appointment_date=timezone.now() + timedelta(days=8),
+            amount=Decimal("700.00"),
+            payment_status=Appointment.PaymentStatus.PAID,
+            status=Appointment.Status.CONFIRMED
+        )
+        new_date = timezone.now() + timedelta(days=10)
+        payload = {
+            "appointment_id": appt.id,
+            "new_appointment_date": new_date.isoformat(),
+            "duration_minutes": 45
+        }
+        res = self.client.post(self.reschedule_url, payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        appt.refresh_from_db()
+        self.assertEqual(appt.duration_minutes, 45)
+        # appointment_date approximated check
+        self.assertTrue(abs((appt.appointment_date - new_date).total_seconds()) < 5)
+
