@@ -47,3 +47,23 @@ class CounsellorSearchAPITests(APITestCase):
         self.profile2.specializations.add(self.spec_depression)
 
         self.url = reverse("search-counsellors")
+
+
+    def test_list_all_counsellors(self):
+        """Ensure default listing returns all counsellors."""
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["count"], 2)
+
+    def test_search_by_name(self):
+        """Search by first_name / last_name / email."""
+        res = self.client.get(self.url, {"q": "Alice"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["results"][0]["full_name"], "Alice Smith")
+
+    def test_search_by_email(self):
+        res = self.client.get(self.url, {"q": "c2"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["count"], 1)
+
+        
