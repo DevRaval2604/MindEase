@@ -98,6 +98,22 @@ class ResourceAPITests(APITestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertIn("Stress", response.data["results"][0]["title"])
 
+    def test_filter_by_type_article(self):
+        response = self.client.get(self.url, {"type": "article"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["resource_type"], "article")
+
+    def test_filter_by_type_video(self):
+        response = self.client.get(self.url, {"type": "video"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+
+    def test_invalid_type_filter(self):
+        response = self.client.get(self.url, {"type": "invalid"})
+        # Should return ALL resources, because type filter is ignored
+        self.assertEqual(len(response.data["results"]), 3)
+
     def test_empty_query_returns_all(self):
         response = self.client.get(self.url, {"q": ""})
         self.assertEqual(len(response.data["results"]), 3)
