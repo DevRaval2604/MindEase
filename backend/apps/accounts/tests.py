@@ -125,7 +125,9 @@ class AuthIntegrationFlowTests(APITestCase):
         self.logout_url = reverse('auth-logout')
 
     def test_full_auth_flow(self):
-        
+        # ------------------------------
+        # 1. SIGNUP
+        # ------------------------------
         signup_data = {
             "email": "flow@example.com",
             "password": "Test1234!",
@@ -136,11 +138,17 @@ class AuthIntegrationFlowTests(APITestCase):
         res = self.client.post(self.signup_url, signup_data, format='json')
         self.assertEqual(res.status_code, 201)
 
+        # ------------------------------
+        # 2. MANUALLY ACTIVATE (simulate email verification)
+        # ------------------------------
         user = User.objects.get(email="flow@example.com")
         user.is_active = True
         user.email_verified = True
         user.save()
 
+        # ------------------------------
+        # 3. LOGIN
+        # ------------------------------
         login_res = self.client.post(self.login_url, {
             "email": "flow@example.com",
             "password": "Test1234!"
@@ -152,13 +160,22 @@ class AuthIntegrationFlowTests(APITestCase):
         # Set cookies for next calls
         self.client.cookies = login_res.cookies
 
+        # ------------------------------
+        # 4. TOKEN REFRESH
+        # ------------------------------
         refresh_res = self.client.post(self.refresh_url)
         self.assertEqual(refresh_res.status_code, 200)
         self.assertIn("access_token", refresh_res.cookies)
 
+        # ------------------------------
+        # 5. PROFILE GET
+        # ------------------------------
         profile_res = self.client.get(self.profile_url)
         self.assertEqual(profile_res.status_code, 200)
 
+        # ------------------------------
+        # 6. LOGOUT
+        # ------------------------------
         logout_res = self.client.post(self.logout_url)
         self.assertEqual(logout_res.status_code, 200)
         self.assertEqual(logout_res.data["detail"], "Logged out.")
