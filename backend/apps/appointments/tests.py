@@ -13,7 +13,7 @@ from rest_framework import status
 from apps.accounts.models import User, CounsellorProfile, ClientProfile, Specialization, AvailabilitySlot, UnavailableDate
 from .models import Appointment
 
-
+# User must be logged in for these endpoints
 class AppointmentModelUnitTests(TestCase):
     def setUp(self):
         self.client_user = User.objects.create_user(email="client1@example.com", password="StrongPass123!", role=User.Roles.CLIENT)
@@ -209,8 +209,7 @@ class AppointmentAPITests(APITestCase):
         res = self.client.post(self.reschedule_url, payload, format='json')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         appt.refresh_from_db()
-        self.assertEqual(appt.duration_minutes, 45)
-        # appointment_date approximated check
+        self.assertEqual(appt.duration_minutes, 45) # appointment_date approximated check
         self.assertTrue(abs((appt.appointment_date - new_date).total_seconds()) < 5)
 
     def test_check_availability_past_date(self):
