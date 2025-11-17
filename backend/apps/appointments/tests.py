@@ -79,3 +79,19 @@ class AppointmentAPITests(APITestCase):
         self.razorpay_verify_url = reverse('appointments:razorpay-verify-payment')
         self.reschedule_url = reverse('appointments:reschedule')
         self.check_avail_url = reverse('appointments:check-availability')
+
+    def test_create_appointment_success(self):
+        appt_time = (timezone.now() + timedelta(days=3)).isoformat()
+        payload = {
+            "counsellor_id": self.counsellor_user.id,
+            "appointment_date": appt_time,
+            "duration_minutes": 60,
+            "notes": "Need help with anxiety"
+        }
+        res = self.client.post(self.create_url, data=payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertIn("id", res.data)
+        appt = Appointment.objects.get(id=res.data["id"])
+        self.assertEqual(appt.client, self.client_user)
+        self.assertEqual(appt.counsellor, self.counsellor_user)
+        self.assertEqual(appt.amount, self.c_profile.fees_per_session)
