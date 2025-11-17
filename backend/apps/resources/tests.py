@@ -56,3 +56,33 @@ class ResourceSerializerTests(APITestCase):
         serializer = ResourceSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn("resource_type", serializer.errors)
+
+
+class ResourceAPITests(APITestCase):
+    """API tests for Resource list endpoint with search & filter."""
+
+    def setUp(self):
+        self.url = reverse("resources-list")
+
+        # Prepare sample resources
+        Resource.objects.create(
+            title="Stress Management Article",
+            description="Learn techniques to reduce stress",
+            resource_type="article",
+            url="https://example.com/a1",
+            created_at=timezone.now()
+        )
+        Resource.objects.create(
+            title="Anxiety Relief Video",
+            description="Watch this to calm your mind",
+            resource_type="video",
+            url="https://example.com/v1",
+            created_at=timezone.now()
+        )
+        Resource.objects.create(
+            title="Depression Guide PDF",
+            description="Deep insights into depression",
+            resource_type="pdf",
+            url="https://example.com/p1",
+            created_at=timezone.now()
+        )
