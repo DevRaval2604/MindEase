@@ -95,3 +95,21 @@ class AppointmentAPITests(APITestCase):
         self.assertEqual(appt.client, self.client_user)
         self.assertEqual(appt.counsellor, self.counsellor_user)
         self.assertEqual(appt.amount, self.c_profile.fees_per_session)
+
+    @patch("apps.appointments.views.razorpay_client")
+    def test_create_razorpay_order(self, mock_razorpay):
+        # create appointment directly
+        appt = Appointment.objects.create(
+            client=self.client_user,
+            counsellor=self.counsellor_user,
+            appointment_date=timezone.now() + timedelta(days=4),
+            amount=Decimal("700.00"),
+            payment_status=Appointment.PaymentStatus.PENDING
+        )
+        # mock razorpay order.create
+        mock_razorpay.order.create.return_value = {'id': 'order_123', 'amount': 70000, 'currency': 'INR'}
+        res = self.client.post(self.razorpay_create_url, {"appointment_id": appt.id}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        appt.refresh_from_db()
+        self.assertEqual(appt.razorpay_order_id, 'order_123')
+        self.assertIn('order_id', res.data)
