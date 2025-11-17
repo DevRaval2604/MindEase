@@ -49,3 +49,33 @@ class AppointmentModelUnitTests(TestCase):
         self.assertTrue(appt.is_paid)
         self.assertTrue(appt.is_upcoming)
         self.assertFalse(appt.is_past)
+
+class AppointmentAPITests(APITestCase):
+    def setUp(self):
+        # create users and profiles
+        self.client_user = User.objects.create_user(email="client2@example.com", password="StrongPass123!", role=User.Roles.CLIENT)
+        self.counsellor_user = User.objects.create_user(email="counsellor2@example.com", password="StrongPass123!", role=User.Roles.COUNSELLOR)
+        self.c_profile = CounsellorProfile.objects.create(
+            user=self.counsellor_user,
+            license_number="LIC-002",
+            fees_per_session=Decimal("700.00")
+        )
+
+        # make client active so we can login via test client
+        self.client_user.is_active = True
+        self.client_user.email_verified = True
+        self.client_user.save()
+
+        self.login_url = reverse('auth-login')
+        # login
+        login_res = self.client.post(self.login_url, {"email": self.client_user.email, "password": "StrongPass123!"})
+        assert login_res.status_code == 200
+        # set cookies for subsequent requests
+        self.client.cookies = login_res.cookies
+
+        self.create_url = reverse('appointments:create')
+        self.list_url = reverse('appointments:list')
+        self.razorpay_create_url = reverse('appointments:razorpay-create-order')
+        self.razorpay_verify_url = reverse('appointments:razorpay-verify-payment')
+        self.reschedule_url = reverse('appointments:reschedule')
+        self.check_avail_url = reverse('appointments:check-availability')
