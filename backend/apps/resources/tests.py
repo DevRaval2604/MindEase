@@ -86,3 +86,8 @@ class ResourceAPITests(APITestCase):
             url="https://example.com/p1",
             created_at=timezone.now()
         )
+
+    def test_list_all_resources(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 3)
