@@ -128,3 +128,8 @@ class ResourceAPITests(APITestCase):
         response = self.client.get(self.url + "?page=1")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 3)
+
+    def test_no_results(self):
+        response = self.client.get(self.url, {"q": "abcdxyz"})
+        self.assertEqual(len(response.data["results"]), 0)
+        
