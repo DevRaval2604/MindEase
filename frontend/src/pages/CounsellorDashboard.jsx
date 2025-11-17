@@ -54,7 +54,7 @@ function CounsellorDashboard() {
             if (!isAuthenticated) return;
 
             try {
-                const res = await fetch(`${API_BASE}/api/auth/me/`, {
+                const res = await fetch(`${API_BASE}/api/auth/profile/`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -62,29 +62,27 @@ function CounsellorDashboard() {
 
                 if (res.ok) {
                     const data = await res.json();
+                    // Map server fields to local state
+                    const dbFullName = data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || '';
+                    const dbEmail = data.email || '';
+                    const dbPhone = data.phone || '';
+                    const dbLicense = data.license_number || '';
+                    const dbFees = data.fees_per_session || '';
+                    const dbBio = data.bio || '';
+                    const dbSpecializations = (data.specializations || []).map(s => s.name).join(', ');
+                    const dbAvailability = (data.availability || []).map(a => a.name).join(', ');
+
                     setProfile(prev => ({
                         ...prev,
-                        fullName: data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || '',
-                        email: data.email || '',
-                        phone: data.phone || '',
+                        fullName: dbFullName,
+                        email: dbEmail,
+                        phone: dbPhone,
+                        licenseNumber: dbLicense,
+                        fees: dbFees,
+                        bio: dbBio,
+                        specialization: dbSpecializations || prev.specialization,
+                        availability: dbAvailability || prev.availability,
                     }));
-
-                    // Load additional fields from localStorage
-                    try {
-                        const saved = JSON.parse(localStorage.getItem('counsellorProfile') || '{}');
-                        if (saved.licenseNumber || saved.specialization || saved.fees || saved.availability || saved.bio) {
-                            setProfile(prev => ({
-                                ...prev,
-                                licenseNumber: saved.licenseNumber || '',
-                                specialization: saved.specialization || '',
-                                fees: saved.fees || '',
-                                availability: saved.availability || '',
-                                bio: saved.bio || '',
-                            }));
-                        }
-                    } catch (e) {
-                        console.error('Error loading localStorage data:', e);
-                    }
                 }
             } catch (error) {
                 console.error('Error fetching profile:', error);

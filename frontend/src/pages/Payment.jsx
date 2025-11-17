@@ -12,18 +12,20 @@ function Payment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const USE_MOCK = import.meta.env.VITE_USE_MOCK_RAZORPAY === 'true';
 
-  // Load Razorpay script
+  // Load Razorpay script only when not using mock mode
   useEffect(() => {
+    if (USE_MOCK) return;
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
     script.onload = () => setRazorpayLoaded(true);
     document.body.appendChild(script);
     return () => {
-      document.body.removeChild(script);
+      try { document.body.removeChild(script); } catch (_) {}
     };
-  }, []);
+  }, [USE_MOCK]);
 
   // Define createAppointment function before useEffect
   const createAppointment = async (appointmentData) => {
@@ -113,16 +115,15 @@ function Payment() {
     setError('');
 
     try {
-      // Create Razorpay order
-      const orderResponse = await fetch(`${API_BASE}/api/appointments/razorpay/create-order/`, {
+      // Create order (real or mock depending on env)
+      const createUrl = USE_MOCK ? `${API_BASE}/api/appointments/razorpay/mock/create-order/` : `${API_BASE}/api/appointments/razorpay/create-order/`;
+      const orderResponse = await fetch(createUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({
-          appointment_id: appointment.id,
-        }),
+        body: JSON.stringify({ appointment_id: appointment.id }),
       });
 
       // Read response as text first (can only read once)
@@ -151,84 +152,109 @@ function Payment() {
 
       console.log('Razorpay order created:', orderData);
 
-      // Razorpay options
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'MindEase',
-        description: `Appointment with ${appointment.counsellor_name}`,
-        order_id: orderData.order_id,
-        handler: async function (response) {
-          // Verify payment
-          try {
-            const verifyResponse = await fetch(`${API_BASE}/api/appointments/razorpay/verify-payment/`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                appointment_id: appointment.id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
+      // If using mock flow: directly call mock verify endpoint to mark appointment paid
+      if (USE_MOCK) {
+        const verifyUrl = `${API_BASE}/api/appointments/razorpay/mock/verify-payment/`;
+        const mockPayload = {
+          appointment_id: appointment.id,
+          razorpay_order_id: orderData.order_id,
+          razorpay_payment_id: `mock_payment_${appointment.id}`,
+          razorpay_signature: 'mock_signature',
+        };
 
-            // Read response as text first (can only read once)
-            const verifyResponseText = await verifyResponse.text();
-            const verifyContentType = verifyResponse.headers.get('content-type') || '';
-            
-            // Check if response is JSON
-            if (!verifyContentType.includes('application/json')) {
-              console.error('Non-JSON response from payment verification:', verifyResponseText.substring(0, 500));
-              throw new Error(`Server returned HTML instead of JSON while verifying payment. Status: ${verifyResponse.status}. Check backend logs.`);
-            }
+        const verifyResponse = await fetch(verifyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(mockPayload),
+        });
 
-            // Parse JSON
-            let verifyData;
+        const verifyText = await verifyResponse.text();
+        const verifyContentType = verifyResponse.headers.get('content-type') || '';
+        if (!verifyContentType.includes('application/json')) {
+          console.error('Non-JSON response from mock verification:', verifyText.substring(0, 500));
+          throw new Error(`Server returned HTML instead of JSON while verifying payment. Status: ${verifyResponse.status}. Check backend logs.`);
+        }
+        const verifyData = JSON.parse(verifyText);
+        if (!verifyResponse.ok) throw new Error(verifyData.detail || 'Mock verification failed');
+
+        console.log('Mock payment verified:', verifyData);
+        navigate('/dashboard', { state: { paymentSuccess: true } });
+        setLoading(false);
+      } else {
+        // Razorpay options
+        const options = {
+          key: orderData.key,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: 'MindEase',
+          description: `Appointment with ${appointment.counsellor_name}`,
+          order_id: orderData.order_id,
+          handler: async function (response) {
+            // Verify payment
             try {
-              verifyData = JSON.parse(verifyResponseText);
-            } catch (parseError) {
-              console.error('Failed to parse verification response JSON:', verifyResponseText.substring(0, 500));
-              throw new Error('Server returned invalid JSON for payment verification. Check the console for details.');
-            }
+              const verifyResponse = await fetch(`${API_BASE}/api/appointments/razorpay/verify-payment/`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  appointment_id: appointment.id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
 
-            if (!verifyResponse.ok) {
-              console.error('Payment verification error:', verifyData);
-              throw new Error(verifyData.detail || verifyData.message || 'Payment verification failed');
-            }
+              // Read response as text first (can only read once)
+              const verifyResponseText = await verifyResponse.text();
+              const verifyContentType = verifyResponse.headers.get('content-type') || '';
+              
+              // Check if response is JSON
+              if (!verifyContentType.includes('application/json')) {
+                console.error('Non-JSON response from payment verification:', verifyResponseText.substring(0, 500));
+                throw new Error(`Server returned HTML instead of JSON while verifying payment. Status: ${verifyResponse.status}. Check backend logs.`);
+              }
 
-            console.log('Payment verified successfully:', verifyData);
-            
-            // Payment successful, wait a moment for backend to process, then redirect to dashboard
-            setTimeout(() => {
-              navigate('/dashboard', { state: { paymentSuccess: true } });
-            }, 500);
-          } catch (err) {
-            setError(err.message || 'Payment verification failed');
-            setLoading(false);
-          }
-        },
-        prefill: {
-          name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : '',
-          email: user?.email || '',
-          contact: user?.phone || '',
-        },
-        theme: {
-          color: '#2563eb',
-        },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
+              // Parse JSON
+              let verifyData;
+              try {
+                verifyData = JSON.parse(verifyResponseText);
+              } catch (parseError) {
+                console.error('Failed to parse verification response JSON:', verifyResponseText.substring(0, 500));
+                throw new Error('Server returned invalid JSON for payment verification. Check the console for details.');
+              }
+
+              if (!verifyResponse.ok) {
+                console.error('Payment verification error:', verifyData);
+                throw new Error(verifyData.detail || verifyData.message || 'Payment verification failed');
+              }
+
+              console.log('Payment verified successfully:', verifyData);
+              
+              // Payment successful, wait a moment for backend to process, then redirect to dashboard
+              setTimeout(() => {
+                navigate('/dashboard', { state: { paymentSuccess: true } });
+              }, 500);
+            } catch (err) {
+              setError(err.message || 'Payment verification failed');
+              setLoading(false);
+            }
           },
-        },
-      };
+          prefill: {
+            name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : '',
+            email: user?.email || '',
+            contact: user?.phone || '',
+          },
+          theme: { color: '#2563eb' },
+          modal: { ondismiss: function () { setLoading(false); } },
+        };
 
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-      setLoading(false);
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
+        setLoading(false);
+      }
     } catch (err) {
       console.error('Payment error:', err);
       setError(err.message || 'Failed to initiate payment. Please try again.');
@@ -330,10 +356,10 @@ function Payment() {
                 </button>
                 <button
                   onClick={handlePayment}
-                  disabled={loading || !razorpayLoaded}
+                  disabled={loading || (!razorpayLoaded && !USE_MOCK)}
                   className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Processing...' : razorpayLoaded ? 'Pay Now (Test Mode)' : 'Loading...'}
+                  {loading ? 'Processing...' : USE_MOCK ? 'Simulate Payment' : (razorpayLoaded ? 'Pay Now (Test Mode)' : 'Loading...')}
                 </button>
               </div>
             </>

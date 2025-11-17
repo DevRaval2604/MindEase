@@ -31,7 +31,7 @@ function CounsellorProfile() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me/`, {
+        const res = await fetch(`${API_BASE}/api/auth/profile/`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -46,8 +46,15 @@ function CounsellorProfile() {
           const dbEmail = data.email || '';
           const dbPhone = data.phone || '';
           const dbAvatar = data.profile_picture || '';
+          // Server-provided counsellor fields
+          const dbLicense = data.license_number || '';
+          const dbFees = data.fees_per_session || '';
+          const dbBio = data.bio || '';
+          const dbExperience = data.experience || '';
+          const dbSpecializations = (data.specializations || []).map(s => s.name).join(', ');
+          const dbAvailability = (data.availability || []).map(a => a.name).join(', ');
 
-          // Load additional fields from localStorage if they exist
+          // Load additional fields from localStorage if they exist (fallback)
           let saved = {};
           try {
             saved = JSON.parse(localStorage.getItem('counsellorProfile') || '{}');
@@ -55,18 +62,18 @@ function CounsellorProfile() {
             console.error('Error loading localStorage data:', e);
           }
 
-          // Set profile with database data (priority) and localStorage data (additional fields)
+          // Set profile with database data (priority) and localStorage as fallback
           setProfile({
             fullName: dbFullName,
             email: dbEmail,
             phone: dbPhone,
             avatar: dbAvatar,
-            // Additional fields from localStorage
-            licenseNumber: saved.licenseNumber || '',
-            specialization: saved.specialization || '',
-            fees: saved.fees || '',
-            availability: saved.availability || '',
-            bio: saved.bio || '',
+            licenseNumber: dbLicense || saved.licenseNumber || '',
+            specialization: dbSpecializations || saved.specialization || '',
+            fees: dbFees || saved.fees || '',
+            availability: dbAvailability || saved.availability || '',
+            bio: dbBio || saved.bio || '',
+            experience: dbExperience || saved.experience || '',
           });
 
           console.log('CounsellorProfile: Profile set with database data:', {
@@ -113,15 +120,49 @@ function CounsellorProfile() {
     }
 
     try {
+      // Upload avatar if it's a base64 data URL
+      async function uploadAvatarIfNeeded(dataUrl) {
+        if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+        try {
+          const resBlob = await fetch(dataUrl);
+          const blob = await resBlob.blob();
+          const fd = new FormData();
+          const ext = blob.type.split('/')[1] || 'png';
+          const file = new File([blob], `avatar.${ext}`, { type: blob.type });
+          fd.append('profile_picture', file);
+
+          const uploadRes = await fetch(`${API_BASE}/api/auth/profile/upload-photo/`, {
+            method: 'POST',
+            credentials: 'include',
+            body: fd,
+          });
+          if (!uploadRes.ok) {
+            const text = await uploadRes.text();
+            throw new Error(`Upload failed: ${uploadRes.status} ${text}`);
+          }
+          const j = await uploadRes.json();
+          return j.profile_picture || dataUrl;
+        } catch (err) {
+          console.error('Avatar upload failed:', err);
+          return dataUrl;
+        }
+      }
+
+      const maybeUploadedUrl = await uploadAvatarIfNeeded(profile.avatar);
       // Update basic profile fields in database
       const updateData = {
         first_name: profile.fullName.split(' ')[0] || '',
         last_name: profile.fullName.split(' ').slice(1).join(' ') || '',
         phone: profile.phone || '',
-        profile_picture: profile.avatar || '',
+        profile_picture: maybeUploadedUrl || profile.avatar || '',
+        // Counsellor-specific fields to persist server-side
+        license_number: profile.licenseNumber || '',
+        fees_per_session: profile.fees ? parseFloat(profile.fees) : null,
+        bio: profile.bio || '',
+        experience: profile.experience || '',
       };
 
-      const res = await fetch(`${API_BASE}/api/auth/me/`, {
+      const res = await fetch(`${API_BASE}/api/auth/profile/`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -132,14 +173,38 @@ function CounsellorProfile() {
         const updatedData = await res.json();
         console.log('Profile updated in database:', updatedData);
 
-        // Save additional fields (licenseNumber, specialization, fees, availability, bio) to localStorage
-        // These can be moved to database later if needed
+        // Update UI state from returned data
+        const dbFullName = updatedData.full_name || `${(updatedData.first_name || '').trim()} ${(updatedData.last_name || '').trim()}`.trim();
+        const dbAvatar = updatedData.profile_picture || '';
+        const dbLicense = updatedData.license_number || '';
+        const dbFees = updatedData.fees_per_session || '';
+        const dbBio = updatedData.bio || '';
+        const dbExperience = updatedData.experience || '';
+        const dbSpecializations = (updatedData.specializations || []).map(s => s.name).join(', ');
+        const dbAvailability = (updatedData.availability || []).map(a => a.name).join(', ');
+
+        setProfile(prev => ({
+          ...prev,
+          fullName: dbFullName,
+          email: updatedData.email || prev.email,
+          phone: updatedData.phone || prev.phone,
+          avatar: dbAvatar,
+          licenseNumber: dbLicense,
+          fees: dbFees,
+          bio: dbBio,
+          experience: dbExperience,
+          specialization: dbSpecializations,
+          availability: dbAvailability,
+        }));
+
+        // Save additional fields to localStorage as fallback (specializations/availability selections)
         const additionalData = {
-          licenseNumber: profile.licenseNumber,
-          specialization: profile.specialization,
-          fees: profile.fees,
-          availability: profile.availability,
-          bio: profile.bio,
+          licenseNumber: dbLicense,
+          specialization: dbSpecializations,
+          fees: dbFees,
+          availability: dbAvailability,
+          bio: dbBio,
+          experience: dbExperience,
         };
         localStorage.setItem('counsellorProfile', JSON.stringify(additionalData));
 
@@ -356,6 +421,13 @@ function CounsellorProfile() {
               </div>
 
               <div className="flex justify-end mt-8 pt-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="mr-4 bg-white text-gray-700 px-6 py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-150"
+                >
+                  Update Details
+                </button>
                 <button
                   type="submit"
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium"

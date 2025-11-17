@@ -17,6 +17,10 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from django.shortcuts import get_object_or_404
 from .models import ClientProfile, CounsellorProfile
 from typing import Optional
+from django.db.models import Prefetch
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+import base64
 
 
 
@@ -341,6 +345,88 @@ class LoginView(APIView):
         return response
 
 
+class TherapistListView(APIView):
+    """
+    GET /api/auth/therapists/
+    Returns a list of counsellors with their profile information.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Only include users with role counsellor
+        qs = User.objects.filter(role=User.Roles.COUNSELLOR)
+        # Prefetch related counsellor_profile and m2m fields
+        qs = qs.select_related('counsellor_profile').prefetch_related(
+            Prefetch('counsellor_profile__specializations'),
+            Prefetch('counsellor_profile__availability')
+        )
+
+        result = []
+        for u in qs:
+            prof = getattr(u, 'counsellor_profile', None)
+            item = {
+                'id': u.id,
+                'email': u.email,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
+                'full_name': u.get_full_name(),
+                'phone': u.phone,
+                'profile_picture': u.profile_picture,
+            }
+            if prof:
+                item.update({
+                    'license_number': prof.license_number,
+                    'fees_per_session': str(prof.fees_per_session) if prof.fees_per_session is not None else None,
+                    'experience': prof.experience,
+                    'bio': prof.bio,
+                    'is_verified_professional': prof.is_verified_professional,
+                    'is_approved': prof.is_approved,
+                    'specializations': [{'id': s.id, 'name': s.name} for s in prof.specializations.all()],
+                    'availability': [{'id': a.id, 'name': a.name} for a in prof.availability.all()],
+                })
+            result.append(item)
+
+        return Response(result)
+
+
+class TherapistDetailView(APIView):
+    """
+    GET /api/auth/therapists/<id>/
+    Returns full counsellor profile for a single therapist.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            user = User.objects.select_related('counsellor_profile').get(id=pk, role=User.Roles.COUNSELLOR)
+        except User.DoesNotExist:
+            return Response({'detail': 'Counsellor not found.'}, status=404)
+
+        prof = getattr(user, 'counsellor_profile', None)
+        data = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'full_name': user.get_full_name(),
+            'phone': user.phone,
+            'profile_picture': user.profile_picture,
+        }
+        if prof:
+            data.update({
+                'license_number': prof.license_number,
+                'fees_per_session': str(prof.fees_per_session) if prof.fees_per_session is not None else None,
+                'experience': prof.experience,
+                'bio': prof.bio,
+                'is_verified_professional': prof.is_verified_professional,
+                'is_approved': prof.is_approved,
+                'specializations': [{'id': s.id, 'name': s.name} for s in prof.specializations.all()],
+                'availability': [{'id': a.id, 'name': a.name} for a in prof.availability.all()],
+            })
+
+        return Response(data)
+
+
 
 
 class TokenRefreshView(APIView):
@@ -470,17 +556,105 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        serializer = self._get_serializer_for_user(request.user, data=request.data, partial=True)
+        # Normalize incoming data: accept friendly frontend keys like 'fullName'
+        data = request.data.copy()
+        # support frontends that send fullName
+        full = data.get('fullName') or data.get('full_name')
+        if full and (not data.get('first_name') and not data.get('last_name')):
+            parts = str(full).strip().split(' ', 1)
+            data['first_name'] = parts[0] if parts else ''
+            data['last_name'] = parts[1] if len(parts) > 1 else ''
+
+        # allow avatar key alias
+        if data.get('avatar') and not data.get('profile_picture'):
+            data['profile_picture'] = data.get('avatar')
+
+        serializer = self._get_serializer_for_user(request.user, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
 
     # Optional: support PUT if you want full-replacement updates
     def put(self, request):
-        serializer = self._get_serializer_for_user(request.user, data=request.data, partial=False)
+        # Normalize incoming data similar to PATCH to be forgiving of frontend keys
+        data = request.data.copy()
+        full = data.get('fullName') or data.get('full_name')
+        if full and (not data.get('first_name') and not data.get('last_name')):
+            parts = str(full).strip().split(' ', 1)
+            data['first_name'] = parts[0] if parts else ''
+            data['last_name'] = parts[1] if len(parts) > 1 else ''
+
+        if data.get('avatar') and not data.get('profile_picture'):
+            data['profile_picture'] = data.get('avatar')
+
+        serializer = self._get_serializer_for_user(request.user, data=data, partial=False)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class ProfilePictureUploadView(APIView):
+    """
+    POST /api/auth/profile/upload-photo/
+    Accepts multipart/form-data with a file field 'profile_picture' OR a JSON body with
+    { "data_url": "data:image/png;base64,..." } to upload and store the image, returning
+    { "profile_picture": "<url>" }.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Prefer actual uploaded file
+        upload = request.FILES.get('profile_picture')
+        if upload:
+            try:
+                # Save file using default storage
+                filename = f'profile_pictures/user_{request.user.id}_{upload.name}'
+                saved_path = default_storage.save(filename, upload)
+                url = default_storage.url(saved_path)
+                # Persist to user.profile_picture
+                request.user.profile_picture = url
+                request.user.save(update_fields=['profile_picture'])
+                return Response({'profile_picture': url}, status=200)
+            except Exception as e:
+                return Response({'detail': f'Failed to save uploaded file: {str(e)}'}, status=500)
+
+        # Otherwise accept data_url JSON
+        data_url = request.data.get('data_url') or request.data.get('profile_picture')
+        if not data_url:
+            return Response({'detail': 'No file or data_url provided.'}, status=400)
+
+        # data_url expected like: data:image/png;base64,AAA...
+        try:
+            header, encoded = data_url.split(',', 1)
+            file_data = base64.b64decode(encoded)
+        except Exception:
+            return Response({'detail': 'Invalid data_url format.'}, status=400)
+
+        # Try to infer image extension from the data URL header (safe and avoids external deps)
+        # header expected like: data:image/png;base64
+        ext = 'png'
+        try:
+            if header and header.startswith('data:'):
+                mime_part = header.split(';', 1)[0]  # 'data:image/png'
+                if '/' in mime_part:
+                    ext = mime_part.split('/', 1)[1]
+                    # sanitize common variants like 'jpeg' -> 'jpg'
+                    if ext == 'jpeg':
+                        ext = 'jpg'
+                    # strip parameters if present
+                    ext = ext.split('+')[0]
+        except Exception:
+            ext = 'png'
+
+        filename = f'profile_pictures/user_{request.user.id}.{ext}'
+        try:
+            saved_path = default_storage.save(filename, ContentFile(file_data))
+            url = default_storage.url(saved_path)
+            request.user.profile_picture = url
+            request.user.save(update_fields=['profile_picture'])
+            return Response({'profile_picture': url}, status=200)
+        except Exception as e:
+            return Response({'detail': f'Failed to save image: {str(e)}'}, status=500)
 
 
 

@@ -21,18 +21,18 @@ function TherapistCard({ t, onBook }) {
           />
         ) : null}
         <div className={`w-full h-full flex items-center justify-center text-white text-2xl font-semibold ${t.image ? 'hidden' : ''}`}>
-          {(t.name?.[0] || t.email?.[0] || 'T').toUpperCase()}
+          {(t.name?.[0] || 'T').toUpperCase()}
         </div>
       </div>
       <div className="text-center font-semibold text-gray-900">{t.name}</div>
-      <div className="text-center text-xs text-gray-600 mt-1">{t.email}</div>
-      {t.phone && (
-        <div className="text-center text-xs text-gray-500 mt-1">📞 {t.phone}</div>
-      )}
+      <div className="text-center text-sm text-gray-600 mt-1">{t.specializations}</div>
+      <div className="text-center text-sm text-gray-500 mt-1">💰 ₹{t.fees}</div>
+      <div className="text-center text-xs text-gray-500 mt-1">Experience: {t.experience}</div>
       <button onClick={onBook} className="mt-4 bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700">Book Now</button>
     </div>
   );
 }
+
 
 // Main Therapist Directory component with filtering logic
 function TherapistDirectory() {
@@ -43,45 +43,41 @@ function TherapistDirectory() {
   const [loadingTherapists, setLoadingTherapists] = useState(true);
 
   // Fetch therapists from database
-  useEffect(() => {
-    const fetchTherapists = async () => {
-      if (!isAuthenticated) {
-        setLoadingTherapists(false);
-        return;
-      }
+useEffect(() => {
+  const controller = new AbortController();
 
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/therapists/`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          // Transform database format to match component expectations
-          const transformed = Array.isArray(data) ? data.map(t => ({
-            id: t.id,
-            name: t.full_name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Therapist',
-            email: t.email,
-            phone: t.phone,
-            image: t.profile_picture || '',
-          })) : [];
-          setTherapists(transformed);
-        } else {
-          console.error('Failed to fetch therapists');
-          setTherapists([]);
-        }
-      } catch (error) {
-        console.error('Error fetching therapists:', error);
-        setTherapists([]);
-      } finally {
-        setLoadingTherapists(false);
-      }
-    };
+  const fetchTherapists = async () => {
+    setLoadingTherapists(true);
+    try {
+      const qParam = query ? `?q=${encodeURIComponent(query)}` : '';
+      const res = await fetch(`${API_BASE}/api/search/counsellors/${qParam}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        signal: controller.signal,
+      });
 
-    fetchTherapists();
-  }, [isAuthenticated]);
+      const data = await res.json();
+      const results = data.results || [];
+
+      setTherapists(results.map(t => ({
+        id: t.id,
+        name: t.full_name,
+        image: t.profile_picture,
+        specializations: (t.specializations || []).map(s => s.name).join(', '),
+        fees: t.fees_per_session,
+      })));
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('Fetch failed', err);
+    } finally {
+      setLoadingTherapists(false);
+    }
+  };
+
+  fetchTherapists();
+  return () => controller.abort();
+}, [query]);
+
 
   const filtered = useMemo(() => {
     return therapists.filter(t => {

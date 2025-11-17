@@ -178,6 +178,44 @@ class CreateRazorpayOrderView(APIView):
             )
 
 
+class MockCreateRazorpayOrderView(APIView):
+    """Create a mock Razorpay order for development/testing when Razorpay is not configured.
+
+    POST /api/appointments/razorpay/mock/create-order/
+    Body: { appointment_id: <int> }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Only enable mock in DEBUG to avoid accidental use in production
+        if not getattr(settings, 'DEBUG', False):
+            return Response({'detail': 'Mock payment endpoints are only available in DEBUG.'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = RazorpayOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        appointment_id = serializer.validated_data['appointment_id']
+
+        try:
+            appointment = Appointment.objects.get(id=appointment_id, client=request.user)
+        except Appointment.DoesNotExist:
+            return Response({'detail': 'Appointment not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create a fake order id and attach to appointment
+        import time
+        mock_order_id = f"mock_order_{appointment.id}_{int(time.time())}"
+        appointment.razorpay_order_id = mock_order_id
+        appointment.save(update_fields=['razorpay_order_id'])
+
+        amount_in_paise = int((appointment.amount or 0) * 100)
+
+        return Response({
+            'order_id': mock_order_id,
+            'amount': amount_in_paise,
+            'currency': 'INR',
+            'key': getattr(settings, 'RAZORPAY_KEY_ID', 'rzp_test_mock'),
+        }, status=status.HTTP_200_OK)
+
+
 class VerifyRazorpayPaymentView(APIView):
     """Verify Razorpay payment and update appointment."""
     permission_classes = [IsAuthenticated]
@@ -356,6 +394,58 @@ class VerifyRazorpayPaymentView(APIView):
                 {'detail': f'An unexpected error occurred: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class MockVerifyRazorpayPaymentView(APIView):
+    """Mock verification endpoint for development — marks appointment as paid without calling Razorpay.
+
+    POST /api/appointments/razorpay/mock/verify-payment/
+    Body: {
+      appointment_id, razorpay_order_id, razorpay_payment_id, razorpay_signature
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not getattr(settings, 'DEBUG', False):
+            return Response({'detail': 'Mock payment endpoints are only available in DEBUG.'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = RazorpayPaymentVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        appointment_id = serializer.validated_data['appointment_id']
+        razorpay_order_id = serializer.validated_data.get('razorpay_order_id')
+        razorpay_payment_id = serializer.validated_data.get('razorpay_payment_id') or f"mock_payment_{appointment_id}"
+        razorpay_signature = serializer.validated_data.get('razorpay_signature') or 'mock_signature'
+
+        try:
+            appointment = Appointment.objects.get(id=appointment_id, client=request.user)
+        except Appointment.DoesNotExist:
+            return Response({'detail': 'Appointment not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Mark as paid and confirmed
+        appointment.payment_status = Appointment.PaymentStatus.PAID
+        appointment.status = Appointment.Status.CONFIRMED
+        appointment.razorpay_payment_id = razorpay_payment_id
+        appointment.razorpay_signature = razorpay_signature
+
+        # Generate Google Meet link and feedback URL similar to real flow
+        try:
+            if not appointment.google_meet_link:
+                meet_code = appointment.generate_meet_code()
+                appointment.google_meet_link = f"https://meet.google.com/{meet_code}"
+        except Exception:
+            appointment.google_meet_link = None
+
+        if not appointment.feedback_form_url:
+            default_feedback_url = getattr(settings, 'FEEDBACK_FORM_URL', 'https://docs.google.com/forms/d/e/1FAIpQLSdEXAMPLE/viewform')
+            appointment.feedback_form_url = f"{default_feedback_url}?entry.1234567890=appointment_{appointment.id}"
+
+        update_fields = ['payment_status', 'status', 'razorpay_payment_id', 'razorpay_signature', 'google_meet_link', 'feedback_form_url']
+        appointment.save(update_fields=[f for f in update_fields if getattr(appointment, f, None) is not None])
+
+        serializer_out = AppointmentSerializer(appointment)
+        return Response(serializer_out.data, status=status.HTTP_200_OK)
 
 
 class AppointmentDetailView(APIView):

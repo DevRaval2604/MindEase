@@ -23,34 +23,21 @@ function Login() {
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
-  
     const nextErrors = validate(form);
     setErrors(nextErrors);
     setTouched({ email: true, password: true });
-  
     if (Object.keys(nextErrors).length > 0) return;
-  
+
     try {
       const data = await login(form.email, form.password);
-      const role = data?.role || "client";
-      navigate(role === "counsellor" ? "/counsellor/dashboard" : "/dashboard");
-  
+      const role = data?.role || 'client';
+      navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
     } catch (err) {
-      console.log("ERROR FULL:", err);                // 👈 log everything
-      console.log("ERROR RESPONSE:", err.response);   // 👈 log response
-      console.log("ERROR REQUEST:", err.request);     // 👈 log request
-
-      const backendMessage =
-        err?.response?.data?.detail ||
-        err?.response?.data?.non_field_errors?.[0] ||
-        err?.response?.data?.message ||
-        "Something went wrong";
-    
-      setErrors({ form: backendMessage });
+      setErrors({ form: err.message || 'Login failed. Please try again.' });
     }
-    
+
   };
 
   return (
@@ -123,7 +110,7 @@ function Login() {
             </div> */}
             <button className="w-full bg-blue-600 text-white py-2.5 rounded-md hover:bg-blue-700" type="submit">Login</button>
           </div>
-          <p className="text-xs text-center text-gray-600 mt-4">Don't have an account? <a href="/Register" className="text-blue-600 hover:underline">Register</a></p>
+          <p className="text-xs text-center text-gray-600 mt-4">Don't have an account?<a href="/register" className="text-blue-600 hover:underline">Register</a></p>
         </form>
       </div>
     </div>

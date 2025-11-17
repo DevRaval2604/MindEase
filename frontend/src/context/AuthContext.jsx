@@ -72,12 +72,15 @@ export function AuthProvider({ children }) {
       // Throw real error object for frontend
       throw { response: { data: errorData } };
     }
-    
     const data = await res.json();
+
+    // Backend returns { detail: ..., user: { id, email, first_name, last_name, role } }
+    // Normalize to return/store the inner user object so callers can access `role` directly.
+    const userObj = data?.user ?? data;
     setIsAuthenticated(true);
-    setUser(data);
-    try { sessionStorage.setItem('auth:user', JSON.stringify(data)); } catch (_) { }
-    return data;
+    setUser(userObj);
+    try { sessionStorage.setItem('auth:user', JSON.stringify(userObj)); } catch (_) { }
+    return userObj;
   };
 
   const logout = async () => {

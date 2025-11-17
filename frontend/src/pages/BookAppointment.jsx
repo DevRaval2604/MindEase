@@ -5,7 +5,6 @@ import { format } from 'date-fns';
 import 'react-calendar/dist/Calendar.css';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 function TimeButton({ label, selected, onClick }) {
@@ -29,6 +28,11 @@ function BookAppointment() {
 
   // Fetch therapists from database only - no default data
   useEffect(() => {
+    if (location.state?.therapist) {
+    setLoadingTherapists(false);
+    return;
+    }
+
     const fetchTherapists = async () => {
       if (!isAuthenticated) {
         setTherapistList([]);
@@ -86,6 +90,45 @@ function BookAppointment() {
     fetchTherapists();
   }, [isAuthenticated, location.state]);
 
+  // If a therapist was passed via location.state but only contains a minimal shape (like id),
+  // try to fetch full details for that single therapist so we can show all fields.
+  useEffect(() => {
+    const passed = location.state?.therapist;
+    if (!passed) return;
+
+    // If we already have detailed data, skip fetching
+    if (passed.originalData && Object.keys(passed.originalData).length > 0) return;
+
+    const fetchOne = async (t) => {
+      try {
+        const id = t.id || t.user_id || null;
+        if (!id) return;
+        const res = await fetch(`${API_BASE}/api/auth/therapists/${id}/`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const transformed = {
+          id: data.id,
+          name: data.full_name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'Therapist',
+          email: data.email,
+          phone: data.phone,
+          image: data.profile_picture || '',
+          tags: [],
+          price: data.fees_per_session || 0,
+          originalData: data,
+        };
+        setTherapist(transformed);
+      } catch (err) {
+        console.error('Error fetching single therapist details:', err);
+      }
+    };
+
+    fetchOne(passed);
+  }, [location.state]);
+
   function handleConfirm() {
     if (!selectedDate || !selectedTime) return;
     // Build a combined Date from selected date + time string
@@ -98,137 +141,131 @@ function BookAppointment() {
     const appointmentDate = new Date(selectedDate);
     appointmentDate.setHours(hours, minutes, 0, 0);
 
-    const newAppointment = {
-      id: Date.now(),
+    // Build appointment data and navigate to the Payment page which will create the
+    // appointment on the backend and initiate the payment flow.
+    const appointmentData = {
       therapistId: therapist?.id,
       therapistName: therapist?.name || 'Therapist',
       therapistEmail: therapist?.email || '',
-      // Store client information
       clientId: user?.id,
       clientName: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : 'Client',
       clientEmail: user?.email || '',
       clientPhone: user?.phone || '',
       tags: therapist?.tags || [],
       datetimeIso: appointmentDate.toISOString(),
-      status: 'confirmed',
+      notes: '',
+      duration_minutes: 60,
     };
 
-    try {
-      const existing = JSON.parse(localStorage.getItem('appointments') || '[]');
-      existing.push(newAppointment);
-      localStorage.setItem('appointments', JSON.stringify(existing));
-    } catch (_) { }
-
-    alert("Appointment booked successfully!");
-    navigate('/dashboard');
+    // Navigate to the payment page and pass appointmentData via location.state
+    navigate('/appointments/payment', { state: { appointmentData } });
   }
   return (
     <div className="flex h-screen">
-      <aside className="w-80 bg-white shadow-lg">
-        <div className="p-6">
-          <div className="flex items-center space-x-2 mb-8">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">MindEase</h1>
-          </div>
-
-          <nav className="space-y-2">
-            <Link
-              to="/dashboard"
-              className="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors text-gray-600 hover:bg-gray-50"
-            >
-              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
-              </svg>
-              Dashboard
-            </Link>
-
-            <Link
-              to="/appointments/book"
-              className="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors bg-blue-50 text-blue-700 border-r-2 border-blue-600"
-            >
-              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              Appointments
-            </Link>
-
-            <Link
-              to="/profile"
-              className="w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors text-gray-600 hover:bg-gray-50"
-            >
-              <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Profile
-            </Link>
-          </nav>
-        </div>
-      </aside>
       <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
         <h1 className="text-xl font-semibold text-gray-900 mb-4">Book Appointment</h1>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+
             <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="font-semibold text-gray-900 mb-3">Select Therapist</div>
-              {loadingTherapists ? (
-                <div className="text-sm text-gray-600 py-8 text-center">Loading therapists...</div>
-              ) : therapistList.length === 0 ? (
-                <div className="text-sm text-gray-600 py-8 text-center">No therapists available at the moment.</div>
+              {therapist ? (
+                <>
+                  <div className="font-semibold text-gray-900 mb-3">Selected Therapist</div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white grid place-items-center flex-shrink-0">
+                      {therapist.image ? (
+                        <img src={therapist.image} alt={therapist.name} className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <span className="text-lg font-semibold">
+                          {(therapist.name?.[0] || therapist.email?.[0] || "T").toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                        <div className="font-semibold text-gray-900">{therapist.name}</div>
+                        <div className="text-sm text-gray-600">{therapist.email}</div>
+                        {therapist.phone && <div className="text-xs text-gray-500">📞 {therapist.phone}</div>}
+
+                        {/* Detailed profile fields if available */}
+                        {therapist.originalData && (
+                          <div className="mt-2 space-y-1 text-xs text-gray-500">
+                            {therapist.originalData.fees_per_session && (
+                              <div>💰 Fees per session: ₹{therapist.originalData.fees_per_session}</div>
+                            )}
+                            {therapist.originalData.license_number && (
+                              <div>🧾 License: {therapist.originalData.license_number}</div>
+                            )}
+                            {therapist.originalData.experience && (
+                              <div>📚 Experience: {therapist.originalData.experience}</div>
+                            )}
+                            {therapist.originalData.specializations?.length > 0 && (
+                              <div>🧠 Specializations: {therapist.originalData.specializations.map(s => s.name).join(', ')}</div>
+                            )}
+                            {therapist.originalData.availability?.length > 0 && (
+                              <div>⏰ Availability: {therapist.originalData.availability.map(a => a.name || a).join(', ')}</div>
+                            )}
+                            <div>✅ Verified professional: {therapist.originalData.is_verified_professional ? 'Yes' : 'No'}</div>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                </>
               ) : (
                 <>
-                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                    <input
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search by name or email..."
-                      className="w-full p-2.5 border rounded-md"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {therapistList
-                      .filter(t => {
-                        const q = searchQuery.trim().toLowerCase();
-                        return !q || t.name.toLowerCase().includes(q) || (t.email && t.email.toLowerCase().includes(q));
-                      })
-                      .map(t => {
-                        const isSelected = therapist && therapist.id === t.id;
-                        return (
-                          <button
-                            key={t.id}
-                            onClick={() => setTherapist(t)}
-                            className={`text-left border rounded-xl p-4 hover:shadow-sm ${isSelected ? 'border-blue-600 bg-blue-50' : ''}`}
-                            aria-pressed={isSelected}
-                          >
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white grid place-items-center mb-2 flex-shrink-0 mx-auto">
-                              {t.image ? (
-                                <img src={t.image} alt={t.name} className="w-full h-full rounded-full object-cover" />
-                              ) : (
-                                <span className="text-lg font-semibold">
-                                  {(t.name?.[0] || t.email?.[0] || 'T').toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            <div className="font-semibold text-gray-900 mt-2">{t.name}</div>
-                            <div className="text-xs text-gray-600 mt-1 truncate">{t.email}</div>
-                            {t.phone && (
-                              <div className="text-xs text-gray-500 mt-1">📞 {t.phone}</div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    {therapistList.filter(t => {
-                      const q = searchQuery.trim().toLowerCase();
-                      return !q || t.name.toLowerCase().includes(q) || (t.email && t.email.toLowerCase().includes(q));
-                    }).length === 0 && (
-                        <div className="col-span-full text-sm text-gray-600">No therapists match your search.</div>
-                      )}
-                  </div>
+                  <div className="font-semibold text-gray-900 mb-3">Select Therapist</div>
+                  {loadingTherapists ? (
+                    <div className="text-sm text-gray-600 py-8 text-center">Loading therapists...</div>
+                  ) : therapistList.length === 0 ? (
+                    <div className="text-sm text-gray-600 py-8 text-center">No therapists available at the moment.</div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                        <input
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          placeholder="Search by name or email..."
+                          className="w-full p-2.5 border rounded-md"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {therapistList
+                          .filter(t => {
+                            const q = searchQuery.trim().toLowerCase();
+                            return !q || t.name.toLowerCase().includes(q) || (t.email && t.email.toLowerCase().includes(q));
+                          })
+                          .map(t => {
+                            const isSelected = therapist && therapist.id === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setTherapist(t)}
+                                className={`text-left border rounded-xl p-4 hover:shadow-sm ${
+                                  isSelected ? "border-blue-600 bg-blue-50" : ""
+                                }`}
+                                aria-pressed={isSelected}
+                              >
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 text-white grid place-items-center mb-2 flex-shrink-0 mx-auto">
+                                  {t.image ? (
+                                    <img src={t.image} alt={t.name} className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    <span className="text-lg font-semibold">
+                                      {(t.name?.[0] || t.email?.[0] || "T").toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="font-semibold text-gray-900 mt-2">{t.name}</div>
+                                <div className="text-xs text-gray-600 mt-1 truncate">{t.email}</div>
+                                {t.phone && <div className="text-xs text-gray-500 mt-1">📞 {t.phone}</div>}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
+
             <div className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="font-semibold text-gray-900 mb-3">Select Date</div>
               <div className="w-full">
@@ -267,6 +304,23 @@ function BookAppointment() {
                     <div className="text-xs text-gray-600 mt-1">{therapist.email}</div>
                     {therapist.phone && (
                       <div className="text-xs text-gray-500 mt-1">📞 {therapist.phone}</div>
+                    )}
+                    {therapist.originalData && (
+                      <div className="mt-2 text-xs text-gray-500 space-y-1">
+                        {therapist.originalData.experience && (
+                          <div>📚 {therapist.originalData.experience}</div>
+                        )}
+                        {therapist.originalData.fees_per_session && (
+                          <div>💰 Fees: ₹{therapist.originalData.fees_per_session}</div>
+                        )}
+                        {therapist.originalData.specializations?.length > 0 && (
+                          <div>🧠 {therapist.originalData.specializations.map(s => s.name).join(', ')}</div>
+                        )}
+                        {therapist.originalData.availability?.length > 0 && (
+                          <div>⏰ {therapist.originalData.availability.map(a => a.name || a).join(', ')}</div>
+                        )}
+                        <div>✅ Verified: {therapist.originalData.is_verified_professional ? 'Yes' : 'No'}</div>
+                      </div>
                     )}
                   </div>
                 </div>

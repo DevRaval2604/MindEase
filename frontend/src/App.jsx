@@ -8,6 +8,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import CounsellorRegistration from './pages/CounsellorRegistration';
 import TherapistDirectory from './pages/TherapistDirectory';
 import ClientDashboard from './pages/ClientDashboard';
+import Payment from './pages/Payment';
 import BookAppointment from './pages/BookAppointment';
 import CounsellorDashboard from './pages/CounsellorDashboard';
 import Resources from './pages/Resources';
@@ -56,6 +57,7 @@ const App = () => {
             <Route path="/therapists" element={<TherapistDirectory />} />
             <Route path="/dashboard" element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>} />
             <Route path="/appointments/book" element={<ProtectedRoute><BookAppointment /></ProtectedRoute>} />
+            <Route path="/appointments/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
             <Route path="/counsellor/dashboard" element={<ProtectedRoute requireCounsellor><CounsellorDashboard /></ProtectedRoute>} />
             <Route path="/counsellor/profile" element={<ProtectedRoute requireCounsellor><CounsellorProfile /></ProtectedRoute>} />
             <Route path="/counsellor/manage-slots" element={<ProtectedRoute requireCounsellor><ManageSlots /></ProtectedRoute>} />
