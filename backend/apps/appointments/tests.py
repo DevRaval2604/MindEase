@@ -113,3 +113,61 @@ class AppointmentAPITests(APITestCase):
         appt.refresh_from_db()
         self.assertEqual(appt.razorpay_order_id, 'order_123')
         self.assertIn('order_id', res.data)
+
+    @patch("apps.appointments.views.razorpay_client")
+    def test_verify_razorpay_payment_success(self, mock_razorpay):
+        # create appointment
+        appt = Appointment.objects.create(
+            client=self.client_user,
+            counsellor=self.counsellor_user,
+            appointment_date=timezone.now() + timedelta(days=5),
+            amount=Decimal("700.00"),
+            payment_status=Appointment.PaymentStatus.PENDING,
+            status=Appointment.Status.PENDING
+        )
+        # create signature using a known secret
+        key_secret = "testsecret"
+        # Set settings secret for view to pick up
+        from django.conf import settings
+        settings.RAZORPAY_KEY_SECRET = key_secret
+
+        fake_order_id = "order_abc"
+        fake_payment_id = "pay_abc"
+        message = f"{fake_order_id}|{fake_payment_id}"
+        signature = hmac.new(key_secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+
+        mock_razorpay.payment.fetch.return_value = {'status': 'captured'}
+        # make sure client sees appointment belongs to them
+        payload = {
+            "appointment_id": appt.id,
+            "razorpay_order_id": fake_order_id,
+            "razorpay_payment_id": fake_payment_id,
+            "razorpay_signature": signature
+        }
+        res = self.client.post(self.razorpay_verify_url, payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        appt.refresh_from_db()
+        self.assertEqual(appt.payment_status, Appointment.PaymentStatus.PAID)
+        self.assertEqual(appt.status, Appointment.Status.CONFIRMED)
+
+    @patch("apps.appointments.views.razorpay_client")
+    def test_verify_razorpay_payment_invalid_signature(self, mock_razorpay):
+        appt = Appointment.objects.create(
+            client=self.client_user,
+            counsellor=self.counsellor_user,
+            appointment_date=timezone.now() + timedelta(days=6),
+            amount=Decimal("700.00"),
+            payment_status=Appointment.PaymentStatus.PENDING,
+            status=Appointment.Status.PENDING
+        )
+        # wrong signature
+        payload = {
+            "appointment_id": appt.id,
+            "razorpay_order_id": "order_x",
+            "razorpay_payment_id": "pay_x",
+            "razorpay_signature": "invalidsignature"
+        }
+        res = self.client.post(self.razorpay_verify_url, payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        appt.refresh_from_db()
+        self.assertEqual(appt.payment_status, Appointment.PaymentStatus.FAILED)
