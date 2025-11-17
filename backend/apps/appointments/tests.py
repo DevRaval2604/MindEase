@@ -213,3 +213,19 @@ class AppointmentAPITests(APITestCase):
         # appointment_date approximated check
         self.assertTrue(abs((appt.appointment_date - new_date).total_seconds()) < 5)
 
+    def test_check_availability_past_date(self):
+        # check past date returns available: False
+        past_date = (timezone.now() - timedelta(days=2)).date().isoformat()
+        payload = {"counsellor_id": self.counsellor_user.id, "date": past_date}
+        res = self.client.post(self.check_avail_url, payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(res.data['available'])
+
+    def test_check_availability_with_unavailable_date(self):
+        # create unavailable date
+        UnavailableDate.objects.create(counsellor=self.counsellor_user, date=(timezone.now() + timedelta(days=4)).date(), reason="Holiday")
+        check_date = (timezone.now() + timedelta(days=4)).date().isoformat()
+        payload = {"counsellor_id": self.counsellor_user.id, "date": check_date}
+        res = self.client.post(self.check_avail_url, payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertFalse(res.data['available'])
