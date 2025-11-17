@@ -91,3 +91,18 @@ class ResourceAPITests(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 3)
+
+    def test_search_resources(self):
+        response = self.client.get(self.url, {"q": "stress"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertIn("Stress", response.data["results"][0]["title"])
+
+    def test_empty_query_returns_all(self):
+        response = self.client.get(self.url, {"q": ""})
+        self.assertEqual(len(response.data["results"]), 3)
+
+    def test_case_insensitive_search(self):
+        response = self.client.get(self.url, {"q": "ANXIETY"})
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertIn("Anxiety", response.data["results"][0]["title"])
