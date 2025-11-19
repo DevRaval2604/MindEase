@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const DEBUG = (import.meta.env.VITE_DEBUG || 'false') === 'true';
 
 function Card({ children, tone = 'default' }) {
   const toneClasses = {
@@ -53,13 +54,59 @@ function Sidebar() {
   );
 }
 
+function normalizeAppointmentShape(apt) {
+  // Ensure fields exist and match what UI expects
+  return {
+    id: apt.id ?? apt.pk ?? apt.appointment_id ?? null,
+    therapistId: apt.counsellor?.id ?? apt.therapistId ?? apt.therapist_id ?? apt.therapist?.id ?? null,
+    therapistName: apt.counsellor?.full_name ?? apt.therapistName ?? apt.therapist_name ?? apt.therapist?.full_name ?? '',
+    therapistEmail: apt.counsellor?.email ?? apt.therapistEmail ?? apt.therapist_email ?? '',
+    datetimeIso: apt.appointment_date ?? apt.datetimeIso ?? apt.datetime ?? null,
+    paymentStatus: (apt.payment_status ?? apt.paymentStatus ?? '').toString().toLowerCase(),
+    googleMeetLink: apt.google_meet_link ?? apt.googleMeetLink ?? apt.meet_link ?? null,
+    feedbackFormUrl: apt.feedback_form_url ?? apt.feedbackFormUrl ?? null,
+    duration_minutes: apt.duration_minutes ?? apt.durationMinutes ?? apt.duration ?? 60,
+    tags: apt.tags ?? apt.tag_list ?? [],
+    feedbackSubmitted: apt.feedbackSubmitted ?? apt.feedback_submitted ?? false,
+    // keep original payload under _raw if needed
+    _raw: apt
+  };
+}
+
+const DEMO_APPOINTMENTS = [
+  {
+    id: 101,
+    therapistId: 201,
+    therapistName: 'Dr. Demo Counsellor',
+    therapistEmail: 'demo@therapist.local',
+    datetimeIso: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    paymentStatus: 'paid',
+    googleMeetLink: 'https://meet.google.com/demo-link',
+    feedbackFormUrl: 'https://docs.google.com/forms/d/e/DEMO/viewform',
+    tags: ['demo'],
+    feedbackSubmitted: false
+  },
+  {
+    id: 102,
+    therapistId: 201,
+    therapistName: 'Dr. Demo Counsellor',
+    therapistEmail: 'demo@therapist.local',
+    datetimeIso: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    paymentStatus: 'paid',
+    googleMeetLink: 'https://meet.google.com/demo-link-2',
+    feedbackFormUrl: 'https://docs.google.com/forms/d/e/DEMO/viewform',
+    tags: ['follow-up'],
+    feedbackSubmitted: false
+  }
+];
+
 function ClientDashboard() {
   const { isAuthenticated } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [counsellors, setCounsellors] = useState([]);
   const [loadingCounsellors, setLoadingCounsellors] = useState(true);
 
-  // Fetch counsellors from database
+  // Fetch counsellors (unchanged)
   useEffect(() => {
     const fetchCounsellors = async () => {
       if (!isAuthenticated) {
@@ -77,7 +124,6 @@ function ClientDashboard() {
 
         if (res.ok) {
           const data = await res.json();
-          // Transform database format to match component expectations
           const transformed = Array.isArray(data) && data.length > 0 ? data.map(t => ({
             id: t.id,
             name: t.full_name || `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Therapist',
@@ -107,49 +153,98 @@ function ClientDashboard() {
     return counsellors.find(c => c.id === therapistId) || null;
   };
 
+  // Load appointments from backend, fallback to localStorage, optional demo-seed
   useEffect(() => {
-    const loadAppointments = () => {
+    let cancelled = false;
+
+    const saveCache = (list) => {
       try {
-        const data = JSON.parse(localStorage.getItem('appointments') || '[]');
-        const appointmentsArray = Array.isArray(data) ? data : [];
-        console.log('Loaded appointments:', appointmentsArray);
-        appointmentsArray.forEach(apt => {
-          if (apt.datetimeIso) {
-            const aptDate = new Date(apt.datetimeIso);
-            const now = new Date();
-            console.log(`Appointment ${apt.id}:`, {
-              datetimeIso: apt.datetimeIso,
-              appointmentDate: aptDate.toISOString(),
-              now: now.toISOString(),
-              isFuture: aptDate > now,
-              googleMeetLink: apt.googleMeetLink,
-              paymentStatus: apt.paymentStatus
-            });
-          }
+        localStorage.setItem('appointments', JSON.stringify(list));
+      } catch (e) {
+        console.warn('Failed to cache appointments to localStorage', e);
+      }
+    };
+
+    const fetchFromApi = async () => {
+      if (!isAuthenticated) {
+        setAppointments([]);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/appointments/`, {
+          method: 'GET',
+          credentials: 'include',
         });
-        setAppointments(appointmentsArray);
-      } catch (error) {
-        console.error('Error loading appointments:', error);
+
+        if (res.ok) {
+          const data = await res.json();
+          // Normalize shapes and filter for client-side safety
+          const normalized = Array.isArray(data) ? data.map(normalizeAppointmentShape) : [];
+          if (!cancelled) {
+            setAppointments(normalized);
+            saveCache(normalized);
+          }
+          return;
+        } else {
+          console.warn('Appointments API returned', res.status);
+        }
+      } catch (err) {
+        console.warn('Appointments API fetch failed:', err);
+      }
+
+      // API failed -> fallback to cache
+      try {
+        const cachedRaw = JSON.parse(localStorage.getItem('appointments') || '[]');
+        const cached = Array.isArray(cachedRaw) ? cachedRaw.map(normalizeAppointmentShape) : [];
+        if (cached.length > 0 && !cancelled) {
+          setAppointments(cached);
+          return;
+        }
+      } catch (e) {
+        console.warn('Failed to parse cached appointments:', e);
+      }
+
+      // If still empty and in DEBUG, seed demo appointments to localStorage and state
+      if (DEBUG && !cancelled) {
+        const demo = DEMO_APPOINTMENTS.map(normalizeAppointmentShape);
+        setAppointments(demo);
+        saveCache(demo);
+        console.info('Debug: seeded demo appointments into localStorage');
+      } else if (!cancelled) {
+        // nothing available
         setAppointments([]);
       }
     };
 
-    loadAppointments();
+    fetchFromApi();
 
     // Refresh when window gains focus (user navigates back to tab)
     const handleFocus = () => {
-      loadAppointments();
+      fetchFromApi();
     };
 
     // Listen for storage changes (when appointments are added from other tabs)
-    window.addEventListener('storage', loadAppointments);
+    const handleStorage = (e) => {
+      if (e.key === 'appointments') {
+        try {
+          const newVal = JSON.parse(e.newValue || '[]').map(normalizeAppointmentShape);
+          setAppointments(newVal);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('storage', handleStorage);
 
     return () => {
-      window.removeEventListener('storage', loadAppointments);
+      cancelled = true;
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('storage', handleStorage);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const { upcoming, past } = useMemo(() => {
     const now = new Date();
@@ -175,17 +270,21 @@ function ClientDashboard() {
 
   function handleFeedbackSubmit(appointmentId) {
     // Get the appointment to find feedback form URL
-    const appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
-    const appointment = appointments.find(apt => apt.id === appointmentId);
+    const appointmentsRaw = JSON.parse(localStorage.getItem('appointments') || '[]');
+    const appointment = (appointmentsRaw || []).find(apt => (apt.id ?? apt.pk) === appointmentId);
     const googleFormUrl = appointment?.feedbackFormUrl || 'https://docs.google.com/forms/d/e/1FAIpQLSdEXAMPLE/viewform';
     window.open(googleFormUrl, '_blank');
 
     // Mark feedback as submitted
-    const updated = appointments.map(apt =>
-      apt.id === appointmentId ? { ...apt, feedbackSubmitted: true, feedbackSubmittedAt: new Date().toISOString() } : apt
+    const updated = (appointmentsRaw || []).map(apt =>
+      (apt.id ?? apt.pk) === appointmentId ? { ...apt, feedbackSubmitted: true, feedbackSubmittedAt: new Date().toISOString() } : apt
     );
-    localStorage.setItem('appointments', JSON.stringify(updated));
-    setAppointments(updated);
+    try {
+      localStorage.setItem('appointments', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to save feedback state to localStorage', e);
+    }
+    setAppointments((prev) => prev.map(a => a.id === appointmentId ? { ...a, feedbackSubmitted: true, feedbackSubmittedAt: new Date().toISOString() } : a));
   }
 
   return (
@@ -199,7 +298,6 @@ function ClientDashboard() {
               <Card><div className="text-sm text-gray-600">No upcoming appointments yet.</div></Card>
             ) : (
               upcoming.map(a => {
-                console.log('Rendering upcoming appointment:', a.id, 'with Google Meet:', a.googleMeetLink);
                 const counsellorDetails = getCounsellorDetails(a.therapistId);
                 const displayName = counsellorDetails?.name || a.therapistName || 'Therapist';
                 const displayEmail = counsellorDetails?.email || a.therapistEmail || '';
@@ -294,7 +392,8 @@ function ClientDashboard() {
                         </div>
                         {a.paymentStatus && (
                           <div className="text-xs">
-                            Payment: <span className={`px-2 py-0.5 rounded-full ${a.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            Payment:{' '}
+                            <span className={`px-2 py-0.5 rounded-full ${a.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                               {a.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
                             </span>
                           </div>
@@ -324,11 +423,17 @@ function ClientDashboard() {
           <div className="space-y-4">
             <h2 className="font-semibold text-gray-900">Today's Overview</h2>
             <Card>
-              <div className="text-sm"><span className="font-semibold">Appointments Today</span><div className="text-3xl font-bold mt-2">{appointments.filter(a => {
-                const d = new Date(a.datetimeIso);
-                const now = new Date();
-                return d.toDateString() === now.toDateString();
-              }).length}</div></div>
+              <div className="text-sm">
+                <span className="font-semibold">Appointments Today</span>
+                <div className="text-3xl font-bold mt-2">
+                  {appointments.filter(a => {
+                    if (!a.datetimeIso) return false;
+                    const d = new Date(a.datetimeIso);
+                    const now = new Date();
+                    return d.toDateString() === now.toDateString();
+                  }).length}
+                </div>
+              </div>
             </Card>
           </div>
         </div>
@@ -338,5 +443,3 @@ function ClientDashboard() {
 }
 
 export default ClientDashboard;
-
-

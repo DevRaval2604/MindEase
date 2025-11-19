@@ -122,25 +122,34 @@ function CounsellorDashboard() {
             return;
         }
 
-        const loadAppointments = () => {
+        const loadAppointments = async () => {
+            if (!isAuthenticated || !user?.id) {
+                setAppointments([]);
+                return;
+            }
+        
             try {
-                const data = JSON.parse(localStorage.getItem('appointments') || '[]');
-                const appointmentsArray = Array.isArray(data) ? data : [];
-
-                // Filter appointments to only show those for this counsellor (therapistId matches logged-in user)
-                const counsellorAppointments = appointmentsArray.filter(apt => {
-                    // Match by therapistId if available, or check if therapistEmail matches logged-in user's email
-                    return apt.therapistId === user.id || apt.therapistEmail === user.email;
+                const res = await fetch(`${API_BASE}/api/appointments/`, {
+                    method: 'GET',
+                    credentials: 'include'
                 });
-
-                console.log('Loaded counsellor appointments:', counsellorAppointments);
+        
+                if (!res.ok) throw new Error("Failed to load appointments");
+        
+                const data = await res.json();
+        
+                // Filter counsellor appointments
+                const counsellorAppointments = data.filter(apt =>
+                    apt.counsellor.id === user.id
+                );
+        
                 setAppointments(counsellorAppointments);
                 calculateEarnings(counsellorAppointments);
             } catch (error) {
-                console.error('Error loading appointments:', error);
+                console.error("API error:", error);
                 setAppointments([]);
             }
-        };
+        };        
 
         loadAppointments();
 

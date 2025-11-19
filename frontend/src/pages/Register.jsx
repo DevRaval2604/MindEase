@@ -194,10 +194,7 @@ function Register() {
       // login page after registration
       const data = await res.json();
       alert(data.detail || "Account created! Please verify your email.");
-
-      const user = await login(form.email, form.password);
-      const role = user?.role || payload.role || 'client';
-      navigate(role === 'counsellor' ? '/counsellor/dashboard' : '/dashboard');
+      navigate('/login');
     } catch (err) {
       setErrors(prev => ({ ...prev, form: err.message || 'Registration failed. Please check your details.' }));
     }
@@ -333,10 +330,9 @@ function Register() {
         value={form.specialization}
         onChange={handleChange}
       >
-                {specializations.map(spec => (
-          <option key={spec.id} value={spec.id}>
-            {spec.name}
-          </option>
+        <option value="">Select Specialization</option>
+        {specializations.map(spec => (
+          <option key={spec.id} value={spec.id}>{spec.name}</option>
         ))}
       </select>
 
@@ -354,11 +350,10 @@ function Register() {
         value={form.availability}
         onChange={handleChange}
       >
-              {availabilityOptions.map(item => (
-        <option key={item.id} value={item.id}>
-          {item.name}
-        </option>
-      ))}
+        <option value="">Select Availability</option>
+        {availabilityOptions.map(item => (
+          <option key={item.id} value={item.id}>{item.name}</option>
+        ))}
       </select>
     </div>
   </>
