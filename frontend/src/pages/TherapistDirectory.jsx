@@ -43,40 +43,40 @@ function TherapistDirectory() {
   const [loadingTherapists, setLoadingTherapists] = useState(true);
 
   // Fetch therapists from database
-useEffect(() => {
-  const controller = new AbortController();
+  useEffect(() => {
+    const controller = new AbortController();
 
-  const fetchTherapists = async () => {
-    setLoadingTherapists(true);
-    try {
-      const qParam = query ? `?q=${encodeURIComponent(query)}` : '';
-      const res = await fetch(`${API_BASE}/api/search/counsellors/${qParam}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        signal: controller.signal,
-      });
+    const fetchTherapists = async () => {
+      setLoadingTherapists(true);
+      try {
+        const qParam = query ? `?q=${encodeURIComponent(query)}` : '';
+        const res = await fetch(`${API_BASE}/api/search/counsellors/${qParam}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          signal: controller.signal,
+        });
 
-      const data = await res.json();
-      const results = data.results || [];
+        const data = await res.json();
+        const results = data.results || [];
 
-      setTherapists(results.map(t => ({
-        id: t.id,
-        name: t.full_name,
-        image: t.profile_picture,
-        specializations: (t.specializations || []).map(s => s.name).join(', '),
-        fees: t.fees_per_session,
-      })));
-    } catch (err) {
-      if (err.name !== 'AbortError') console.error('Fetch failed', err);
-    } finally {
-      setLoadingTherapists(false);
-    }
-  };
+        setTherapists(results.map(t => ({
+          id: t.user.id,
+          name: t.full_name,
+          image: t.profile_picture,
+          specializations: (t.specializations || []).map(s => s.name).join(', '),
+          fees: t.fees_per_session,
+        })));
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error('Fetch failed', err);
+      } finally {
+        setLoadingTherapists(false);
+      }
+    };
 
-  fetchTherapists();
-  return () => controller.abort();
-}, [query]);
+    fetchTherapists();
+    return () => controller.abort();
+  }, [query]);
 
 
   const filtered = useMemo(() => {

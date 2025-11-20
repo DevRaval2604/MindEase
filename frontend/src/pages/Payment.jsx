@@ -23,7 +23,7 @@ function Payment() {
     script.onload = () => setRazorpayLoaded(true);
     document.body.appendChild(script);
     return () => {
-      try { document.body.removeChild(script); } catch (_) {}
+      try { document.body.removeChild(script); } catch (_) { }
     };
   }, [USE_MOCK]);
 
@@ -59,7 +59,7 @@ function Payment() {
       // Read response as text first (can only read once)
       const responseText = await response.text();
       const contentType = response.headers.get('content-type') || '';
-      
+
       // Check if response is JSON
       if (!contentType.includes('application/json')) {
         console.error('Non-JSON response received (first 500 chars):', responseText.substring(0, 500));
@@ -129,7 +129,7 @@ function Payment() {
       // Read response as text first (can only read once)
       const orderResponseText = await orderResponse.text();
       const orderContentType = orderResponse.headers.get('content-type') || '';
-      
+
       // Check if response is JSON
       if (!orderContentType.includes('application/json')) {
         console.error('Non-JSON response from order creation:', orderResponseText.substring(0, 500));
@@ -210,7 +210,7 @@ function Payment() {
               // Read response as text first (can only read once)
               const verifyResponseText = await verifyResponse.text();
               const verifyContentType = verifyResponse.headers.get('content-type') || '';
-              
+
               // Check if response is JSON
               if (!verifyContentType.includes('application/json')) {
                 console.error('Non-JSON response from payment verification:', verifyResponseText.substring(0, 500));
@@ -232,7 +232,7 @@ function Payment() {
               }
 
               console.log('Payment verified successfully:', verifyData);
-              
+
               // Payment successful, wait a moment for backend to process, then redirect to dashboard
               setTimeout(() => {
                 navigate('/dashboard', { state: { paymentSuccess: true } });
@@ -349,7 +349,16 @@ function Payment() {
 
               <div className="flex gap-4">
                 <button
-                  onClick={() => navigate('/appointments/book')}
+                  onClick={() => {
+                    // Pass therapist data back so BookAppointment doesn't reset
+                    const therapistData = location.state?.appointmentData ? {
+                      id: location.state.appointmentData.therapistId,
+                      name: location.state.appointmentData.therapistName,
+                      email: location.state.appointmentData.therapistEmail
+                    } : (appointment ? { id: appointment.counsellor_id, name: appointment.counsellor_name } : null);
+
+                    navigate('/appointments/book', { state: { therapist: therapistData } });
+                  }}
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
